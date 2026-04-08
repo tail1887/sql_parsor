@@ -107,6 +107,7 @@ io error: failed to open data/missing.csv
 | `data/<table>.csv` 없음 + SELECT | 종료 코드 `3` |
 | 헤더만 있는 CSV + SELECT | 헤더만 출력 후 행 없음 |
 | INSERT 값 개수 ≠ 컬럼 수 | 종료 코드 `3`, stderr |
+| NULL 저장 표현 | 빈 필드(예: `a,,b`) |
 | 따옴표·콤마 포함 문자열 | 파서·CSV 직렬화가 RFC 4180 스타일과 호환되게 처리 |
 
 ## 8) 오픈 이슈
