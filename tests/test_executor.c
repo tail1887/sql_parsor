@@ -1,4 +1,4 @@
-﻿#include "ast.h"
+#include "ast.h"
 #include "csv_storage.h"
 #include "executor.h"
 #include "lexer.h"

@@ -1,4 +1,4 @@
-﻿#include "csv_storage.h"
+#include "csv_storage.h"
 
 #include <stdio.h>
 #include <stdlib.h>

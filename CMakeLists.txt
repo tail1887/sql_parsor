@@ -1,4 +1,4 @@
-﻿# CMakeLists.txt — 빌드 시스템 정의
+# CMakeLists.txt — 빌드 시스템 정의
 #
 # [소스 트리 vs 빌드 트리]
 # - 소스 트리: CMakeLists.txt, src/, include/, tests/ 등 저장소에 두는 파일들이 있는 루트

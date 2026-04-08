@@ -1,4 +1,4 @@
-﻿# 03. CLI 및 SQL 계약 (API Reference)
+# 03. CLI 및 SQL 계약 (API Reference)
 
 이 문서는 HTTP API가 아니라 **CLI 인자·종료 코드·지원 SQL 문법·에러 출력** 에 대한 **구현 계약**이다. 동작을 바꿀 때는 본 문서와 테스트를 함께 갱신한다.
 

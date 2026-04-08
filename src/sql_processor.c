@@ -1,4 +1,4 @@
-﻿#include "sql_processor.h"
+#include "sql_processor.h"
 
 #include "ast.h"
 #include "executor.h"
