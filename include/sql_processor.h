@@ -12,4 +12,10 @@
  */
 int sql_processor_run_file(const char *path, FILE *out, FILE *err);
 
+/*
+ * SQL 스크립트를 실행하면서 단계별 trace(JSON lines)를 기록한다.
+ * - trace: 각 단계 이벤트를 기록할 출력 스트림
+ */
+int sql_processor_run_file_trace(const char *path, FILE *out, FILE *err, FILE *trace);
+
 #endif

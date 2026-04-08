@@ -251,12 +251,38 @@ int csv_storage_append_insert_row(const char *table, const SqlValue *values, siz
         return -1;
     }
 
+    int need_newline = 0;
+    fp = fopen(path, "rb");
+    if (!fp) {
+        return -1;
+    }
+    if (fseek(fp, 0, SEEK_END) != 0) {
+        fclose(fp);
+        return -1;
+    }
+    long sz = ftell(fp);
+    if (sz < 0) {
+        fclose(fp);
+        return -1;
+    }
+    if (sz > 0) {
+        if (fseek(fp, -1, SEEK_END) != 0) {
+            fclose(fp);
+            return -1;
+        }
+        int last = fgetc(fp);
+        if (last != '\n' && last != '\r') {
+            need_newline = 1;
+        }
+    }
+    fclose(fp);
+
     fp = fopen(path, "ab");
     if (!fp) {
         return -1;
     }
 
-    if (ftell(fp) > 0) {
+    if (need_newline) {
         if (fputc('\n', fp) == EOF) {
             fclose(fp);
             return -1;

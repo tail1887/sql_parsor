@@ -79,6 +79,12 @@ static int run_sql_text(const char *sql, size_t len, FILE *out, FILE *err) {
     int in_string = 0;
     size_t stmt_no = 0;
 
+    /* UTF-8 BOM(EF BB BF) 이 있으면 첫 문장 파싱 전에 건너뛴다. */
+    if (len >= 3 && (unsigned char)sql[0] == 0xEF && (unsigned char)sql[1] == 0xBB &&
+        (unsigned char)sql[2] == 0xBF) {
+        start = 3;
+    }
+
     for (size_t i = 0; i < len; i++) {
         char c = sql[i];
 

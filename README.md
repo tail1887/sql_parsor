@@ -115,6 +115,24 @@ Windows PowerShell 예:
 ctest --test-dir build --output-on-failure
 ```
 
+### 4) 실시간 데모 페이지 (Node + Express)
+
+`Step 1~5(SQL 입력 → Lexer → Parser(AST) → Executor → 결과)`를 브라우저에서 확인할 수 있습니다.
+
+```bash
+cmake --build build-gcc
+cd demo
+npm install
+npm start
+```
+
+브라우저에서 `http://localhost:4010` 접속:
+
+- 예제 버튼으로 SQL 템플릿 선택
+- 실행 시 `stdout/stderr/exit code` 확인
+- 토큰(kind/text/line/column), AST, executor 호출 흐름 확인
+- `users.csv` 실행 전/후 diff 확인
+
 ## 프로젝트 문서
 
 - [Codex 작업 규칙](AGENTS.md)
@@ -145,8 +163,17 @@ sql_parsor/
 │  ├─ executor.c
 │  ├─ lexer.c
 │  ├─ main.c
+│  ├─ main_trace.c
 │  ├─ parser.c
-│  └─ sql_processor.c
+│  ├─ sql_processor.c
+│  └─ sql_trace.c
+├─ demo/
+│  ├─ package.json
+│  ├─ server.js
+│  └─ public/
+│     ├─ app.js
+│     ├─ index.html
+│     └─ styles.css
 ├─ tests/
 │  ├─ test_bootstrap.c
 │  ├─ test_csv_storage.c
