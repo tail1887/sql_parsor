@@ -1,0 +1,131 @@
+# 04. Development Guide
+
+구현 단계 진입 시 본 문서와 `AGENTS.md` 를 함께 따른다.  
+단계별로 무엇을 공부할지는 [`05-learning-resources.md`](05-learning-resources.md) (스펙 아님).
+
+## 1) 브랜치 전략
+
+권장 브랜치 타입:
+
+- `feature/<name>`
+- `fix/<name>`
+- `docs/<name>`
+- `test/<name>`
+- `chore/<name>`
+
+SQL 처리기에 맞춘 예시 브랜치 분리:
+
+1. `feature/bootstrap-cmake` — CMakeLists, `main` 골격, 디렉터리
+2. `feature/lexer` — tokenizer 단위
+3. `feature/insert-parser` — INSERT AST
+4. `feature/select-parser` — SELECT AST
+5. `feature/csv-storage` — 경로 매핑, 읽기/append, 이스케이프
+6. `feature/executor` — INSERT/SELECT 실행
+7. `feature/cli` — 인자 처리, 파일 읽기, 문장 루프, 종료 코드
+8. `test/integration-sql` — `tests/sql/*.sql` 픽스처
+9. `docs/readme-demo` — 발표용 README 정리
+
+브랜치 분리 기준:
+
+- **한 브랜치 = 한 책임**(파서 변경과 저장 포맷 변경을 한 PR에 섞지 않기)
+- 문서 변경이 동작 변경을 수반하면 **같은 PR**에 `docs/` 포함
+
+## 2) 커밋 규칙
+
+```text
+<type>: <subject>
+```
+
+예시:
+
+- `feat: add insert parser`
+- `fix: handle escaped quotes in csv append`
+- `docs: align select output format with 03-api-reference`
+- `test: add lexer edge cases`
+
+## 3) 구현 순서 (권장)
+
+`AGENTS.md` 의 **Codex-First Development Order** 와 동일하게 유지한다.
+
+1. 프로젝트 부트스트랩 (`include/`, `src/`, `tests/`, `data/`, CMake)
+2. Lexer (tokenizer)
+3. INSERT 파서
+4. SELECT 파서
+5. CSV storage 읽기/쓰기
+6. Executor (INSERT/SELECT)
+7. CLI 통합 (`sql_processor`)
+8. 에러 처리·엣지 케이스
+9. 단위·통합 테스트 보강
+10. README 발표용 다듬기
+
+## 4) Codex / AI 태스크 요청 방식
+
+좋은 요청 예시:
+
+- `docs/01-product-planning.md 와 docs/03-api-reference.md 를 읽고 INSERT 파서와 단위 테스트만 추가해줘.`
+- `docs/02-architecture.md 기준으로 csv_storage 모듈만 구현해줘.`
+- `AGENTS.md 규칙에 맞춰 feature 브랜치 단위로 다음 작업을 쪼개줘.`
+
+피해야 할 요청 예시:
+
+- `프로젝트 전부 한 번에 만들어줘`
+- `README만 보고 SQL 문법을 추측해서 구현해줘`
+
+## 5) 테스트 전략
+
+### 단위 테스트
+
+- Lexer: 식별자, 숫자, 문자열, 따옴표 이스케이프, 주석, 세미콜론
+- Parser: INSERT/SELECT 성공·실패 입력
+- csv_storage: 한 줄 직렬화/역직렬화, 컬럼 수 검증
+
+### 통합(기능) 테스트
+
+- `tests/sql/` 에 `.sql` 파일과 **기대 stdout/stderr/exit code** 를 정의한다.
+- 실행 방법(예시):
+  - CTest에서 `add_test` 로 `sql_processor` 에 픽스처 경로를 넘기고, `cmake -E compare_files` 또는 스크립트로 기대 출력과 비교한다.
+  - 또는 테스트 전용 C 프로그램이 픽스처를 실행하고 assert 한다.
+
+최소 체크리스트:
+
+- [ ] INSERT 후 파일 끝에 행이 추가되는지
+- [ ] SELECT 가 헤더·행을 기대와 일치하게 출력하는지
+- [ ] 구문 오류 시 비제로 exit code
+- [ ] 테이블 파일 없음 / 컬럼 수 불일치
+- [ ] 문서(`docs/03-api-reference.md`)와 출력·exit code 동기화
+
+## 6) PR 체크리스트
+
+- [ ] 변경 목적이 명확하다
+- [ ] 테스트를 추가했거나 기존 테스트가 통과한다
+- [ ] parser 동작·CLI·저장 포맷이 바뀌면 `docs/03-api-reference.md` 또는 `docs/02-architecture.md` 를 갱신했다
+- [ ] 리뷰어가 이해할 수 있게 범위를 설명했다
+
+## 7) 마일스톤 예시
+
+### Milestone 1. 기반 구성
+
+- CMake 빌드 + `sql_processor` 실행 파일
+- `main` 에서 인자 검증 및 플레이스홀더 동작
+- CTest 골격
+
+### Milestone 2. 핵심 기능
+
+- INSERT/SELECT end-to-end
+- `data/*.csv` 와 연동
+
+### Milestone 3. 마감 준비
+
+- 엣지 케이스·에러 메시지 정리
+- 통합 테스트·README 데모 시나리오 동기화
+- (선택) Stretch WHERE
+
+## 8) 로컬 명령 참고
+
+프로젝트 루트에서:
+
+- 설정 및 빌드: `cmake -S . -B build && cmake --build build`
+- 테스트: `ctest --test-dir build --output-on-failure`
+- 포맷(선택): `clang-format -i src/*.c include/*.h tests/*.c`
+
+실행 파일 경로는 `README.md` 의 Quick Start 를 따른다.
