@@ -1,4 +1,4 @@
-# 03. CLI 및 SQL 계약 (API Reference)
+﻿# 03. CLI 및 SQL 계약 (API Reference)
 
 이 문서는 HTTP API가 아니라 **CLI 인자·종료 코드·지원 SQL 문법·에러 출력** 에 대한 **구현 계약**이다. 동작을 바꿀 때는 본 문서와 테스트를 함께 갱신한다.
 
@@ -60,6 +60,7 @@ INSERT INTO <table> VALUES ( <value_list> );
 INSERT 성공 시: 대상 CSV **마지막에 데이터 행 한 줄** 추가(RFC 4180 스타일 따옴표·이스케이프로 직렬화).
 
 - 파서(INSERT만): `parser_parse_insert` → `InsertStmt` (`include/parser.h`, `include/ast.h`). 문장 끝은 `;` 또는 입력 끝(EOF) 허용.
+- 파서(SELECT MVP): `parser_parse_select` -> `SelectStmt` (`include/parser.h`, `include/ast.h`). `SELECT *` 또는 `SELECT col, ... FROM <table>` 형태를 해석.
 
 ### 4.2 SELECT
 

@@ -1,4 +1,4 @@
-# sql_parsor
+﻿# sql_parsor
 
 **sql_parsor**는 텍스트 SQL 파일을 CLI로 받아 **INSERT / SELECT** 를 파싱·실행하고, **테이블당 CSV 파일**에 저장·조회하는 **C 기반 SQL 처리기** 프로젝트입니다.
 
@@ -145,7 +145,7 @@ sql_parsor/
 ├─ tests/
 │  ├─ test_bootstrap.c
 │  ├─ test_lexer.c
-│  ├─ test_parser_insert.c
+│  ├─ test_parser_insert.c`r`n│  ├─ test_parser_select.c
 │  └─ sql/
 ├─ data/
 │  └─ users.csv

@@ -1,4 +1,4 @@
-# CMakeLists.txt — 빌드 시스템 정의
+﻿# CMakeLists.txt — 빌드 시스템 정의
 #
 # [소스 트리 vs 빌드 트리]
 # - 소스 트리: CMakeLists.txt, src/, include/, tests/ 등 저장소에 두는 파일들이 있는 루트
@@ -55,6 +55,9 @@ target_include_directories(test_lexer PRIVATE "${CMAKE_CURRENT_SOURCE_DIR}/inclu
 add_executable(test_parser_insert tests/test_parser_insert.c src/parser.c src/ast.c src/lexer.c)
 target_include_directories(test_parser_insert PRIVATE "${CMAKE_CURRENT_SOURCE_DIR}/include")
 
+add_executable(test_parser_select tests/test_parser_select.c src/parser.c src/ast.c src/lexer.c)
+target_include_directories(test_parser_select PRIVATE "${CMAKE_CURRENT_SOURCE_DIR}/include")
+
 # ------------------------------------------------------------------------------
 # 3. 테스트 자동화 (CTest)
 #
@@ -79,5 +82,5 @@ set_tests_properties(cli_no_args PROPERTIES WILL_FAIL TRUE)
 add_test(NAME bootstrap_smoke COMMAND $<TARGET_FILE:test_bootstrap>)
 
 add_test(NAME lexer_unit COMMAND $<TARGET_FILE:test_lexer>)
-
 add_test(NAME parser_insert_unit COMMAND $<TARGET_FILE:test_parser_insert>)
+add_test(NAME parser_select_unit COMMAND $<TARGET_FILE:test_parser_select>)
