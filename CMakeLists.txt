@@ -37,7 +37,7 @@ set(CMAKE_C_EXTENSIONS OFF)
 
 # [add_executable] 지정한 .c 들을 컴파일·링크해 “실행 파일 타깃” 하나를 만듭니다.
 # 산출물은 빌드 트리(예: build/) 아래에 생성됩니다.
-add_executable(sql_processor src/main.c src/lexer.c src/parser.c src/ast.c src/csv_storage.c)
+add_executable(sql_processor src/main.c src/lexer.c src/parser.c src/ast.c src/csv_storage.c src/executor.c)
 
 # [target_include_directories] 이 타깃을 컴파일할 때만 헤더 검색 경로(-I)에 넣습니다.
 # PRIVATE: 이 타깃 빌드에만 쓰이고 다른 타깃에 전파하지 않음(sql_processor 전용).
@@ -60,6 +60,9 @@ target_include_directories(test_parser_select PRIVATE "${CMAKE_CURRENT_SOURCE_DI
 
 add_executable(test_csv_storage tests/test_csv_storage.c src/csv_storage.c src/ast.c)
 target_include_directories(test_csv_storage PRIVATE "${CMAKE_CURRENT_SOURCE_DIR}/include")
+
+add_executable(test_executor tests/test_executor.c src/executor.c src/csv_storage.c src/parser.c src/ast.c src/lexer.c)
+target_include_directories(test_executor PRIVATE "${CMAKE_CURRENT_SOURCE_DIR}/include")
 
 # ------------------------------------------------------------------------------
 # 3. 테스트 자동화 (CTest)
@@ -88,3 +91,4 @@ add_test(NAME lexer_unit COMMAND $<TARGET_FILE:test_lexer>)
 add_test(NAME parser_insert_unit COMMAND $<TARGET_FILE:test_parser_insert>)
 add_test(NAME parser_select_unit COMMAND $<TARGET_FILE:test_parser_select>)
 add_test(NAME csv_storage_unit COMMAND $<TARGET_FILE:test_csv_storage>)
+add_test(NAME executor_unit COMMAND $<TARGET_FILE:test_executor>)
