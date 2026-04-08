@@ -95,7 +95,7 @@ cmake --build build
 
 - `build/sql_processor` 또는 `build/sql_processor.exe`
 
-### 2) 실행 (골격 단계)
+### 2) 실행
 
 ```bash
 ./build/sql_processor sample.sql
@@ -107,7 +107,7 @@ Windows PowerShell 예:
 .\build\Debug\sql_processor.exe .\sample.sql
 ```
 
-골격 구현 시에는 아직 SQL이 처리되지 않을 수 있습니다. 구현이 완료되면 `sample.sql` 과 `data/` 샘플을 맞춰 데모를 진행합니다.
+현재 구현은 `INSERT`/`SELECT`를 실제로 파싱·실행합니다. `sample.sql`과 `data/`를 맞춰 실행하면 SELECT 결과가 stdout(TSV)으로 출력됩니다.
 
 ### 3) 테스트
 
@@ -145,12 +145,14 @@ sql_parsor/
 │  ├─ executor.c
 │  ├─ lexer.c
 │  ├─ main.c
-│  └─ parser.c
+│  ├─ parser.c
+│  └─ sql_processor.c
 ├─ tests/
 │  ├─ test_bootstrap.c
 │  ├─ test_csv_storage.c
 │  ├─ test_executor.c
 │  ├─ test_lexer.c
+│  ├─ test_main_integration.c
 │  ├─ test_parser_insert.c
 │  ├─ test_parser_select.c
 │  └─ sql/

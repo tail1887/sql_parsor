@@ -31,6 +31,7 @@ sql_processor <path.sql>
 
 - `<path.sql>`: UTF-8 텍스트 파일. 여러 SQL 문을 **세미콜론(`;`)** 으로 구분한다.
 - 마지막 문장 뒤 세미콜론은 선택 사항으로 허용할 수 있다(구현 일관성 유지).
+- 구현 함수: `sql_processor_run_file` (`include/sql_processor.h`, `src/sql_processor.c`) — 스크립트에서 문장 단위 실행 루프를 수행한다.
 
 **잘못된 사용 예**
 
