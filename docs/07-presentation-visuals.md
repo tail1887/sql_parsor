@@ -12,11 +12,11 @@ flowchart TB
     start[Same_Goal_SQL_Processor] --> teamA[A_Team]
     start --> teamB[B_Team]
 
-    teamA --> aStyle[TopDown_Modular_Flow]
+    teamA --> aStyle[BottomUp_Component_Flow]
     aStyle --> aStorage[CSV_Centered]
     aStyle --> aOutput[TSV_Stdout_Focus]
 
-    teamB --> bStyle[BottomUp_UseCase_Focus]
+    teamB --> bStyle[UseCase_Centered]
     bStyle --> bStorage[CSV_Plus_Binary]
     bStyle --> bRules[RuleHeavy_Executor]
 ```
@@ -25,8 +25,8 @@ flowchart TB
 
 핵심 메시지:
 
-- A조: 파이프라인 이해/가시성 중심
-- B조: 요구 규칙/도메인 처리 중심
+- A조: Bottom-up(구성 요소부터) · 파이프라인 가시성
+- B조: Use-case 중심(테이블·시나리오 먼저, 그에 맞는 기능) · 도메인 규칙
 
 ---
 
