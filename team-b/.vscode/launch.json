@@ -1,0 +1,35 @@
+{
+    "version": "0.2.0",
+    "configurations": [
+        {
+            "type": "cppdbg",
+            "request": "launch",
+            "name": "Debug sql_processor",
+            "program": "${workspaceFolder}/sql_processor",
+            "args": [
+                "${input:queryFile}"
+            ],
+            "stopAtEntry": false,
+            "cwd": "${workspaceFolder}",
+            "environment": [],
+            "externalConsole": false,
+            "MIMode": "gdb",
+            "setupCommands": [
+                {
+                    "description": "Enable pretty-printing for gdb",
+                    "text": "-enable-pretty-printing",
+                    "ignoreFailures": true
+                }
+            ],
+            "preLaunchTask": "Build sql_processor"
+        }
+    ],
+    "inputs": [
+        {
+            "id": "queryFile",
+            "type": "promptString",
+            "description": "Enter the SQL file to run",
+            "default": "sample_query.sql"
+        }
+    ]
+}

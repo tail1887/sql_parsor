@@ -1,0 +1,21 @@
+# Repository expectations
+
+- Language: C99
+- Build with: make
+- Test with: make test
+- Goal: build a tiny file-based SQL processor in C
+- Keep the implementation minimal and easy to explain
+- Only support:
+  - INSERT INTO STUDENT_CSV VALUES (id, 'name', class);
+  - INSERT INTO ENTRY_LOG_BIN VALUES ('YYYY-MM-DD HH:MM:SS', id);
+  - SELECT * FROM STUDENT_CSV;
+  - SELECT * FROM STUDENT_CSV WHERE id = <int>;
+  - SELECT * FROM ENTRY_LOG_BIN WHERE id = <int>;
+- Do not implement CREATE TABLE, UPDATE, DELETE, JOIN, ORDER BY, GROUP BY, subqueries
+- Do not build a general SQL engine
+- Separate tokenizer, parser, executor, and storage
+- Never write the whole struct to binary with one fwrite
+- Add tests for every new behavior
+- Stop at the smallest implementation that satisfies the spec
+- Keep file and function names explicit and beginner-friendly
+- Prefer deterministic stdout/stderr output for tests

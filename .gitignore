@@ -1,4 +1,7 @@
-build/
-.cache/
-build-gcc/
-demo/node_modules/
+# 로컬에만 남을 수 있는 루트 demo 복사본(잠금 등으로 이동 실패 시). 삭제해도 됩니다.
+/demo/
+
+team-a/build/
+team-a/build-gcc/
+team-a/demo/node_modules/
+team-b/manual_runs/

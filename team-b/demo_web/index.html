@@ -1,0 +1,186 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>SQL 처리기 발표 데모</title>
+    <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+    <div class="desktop">
+        <header class="window-panel masthead">
+            <div class="title-bar">
+                <div class="title-bar-text">SQL 처리기 발표 데모</div>
+                <div class="title-bar-controls" aria-hidden="true">
+                    <span></span>
+                    <span></span>
+                    <span></span>
+                </div>
+            </div>
+            <div class="window-body masthead-body">
+                <div class="brand-copy">
+                    <p class="hero-kicker">STEP 6</p>
+                    <h1>SQL 처리기 웹 데모</h1>
+                    <p class="hero-text">
+                        케이스를 누르면 SQL 파일, 실행 명령, 두 테이블 정의, 현재 저장 상태,
+                        표준 출력, 표준 에러가 한 화면에서 함께 바뀐다.
+                    </p>
+                </div>
+                <div class="hero-side">
+                    <div id="summary-cards" class="summary-grid"></div>
+                    <div class="hero-actions">
+                        <a id="overview-link" class="win-link-button" href="#">마크다운 요약</a>
+                        <a id="samples-link" class="win-link-button" href="#">샘플 가이드</a>
+                    </div>
+                </div>
+            </div>
+        </header>
+
+        <div class="desktop-grid">
+            <aside class="window-panel sidebar-window">
+                <div class="title-bar">
+                    <div class="title-bar-text">데모 케이스</div>
+                    <div class="title-bar-controls" aria-hidden="true">
+                        <span></span>
+                    </div>
+                </div>
+                <div class="window-body">
+                    <p class="helper-text">
+                        각 케이스는 빈 작업 디렉터리에서 샘플 SQL을 실제 실행한 결과다.
+                    </p>
+                    <div id="case-list" class="case-list"></div>
+                </div>
+            </aside>
+
+            <main class="main-column">
+                <section class="window-panel">
+                    <div class="title-bar">
+                        <div class="title-bar-text">선택한 케이스</div>
+                        <div class="title-bar-controls" aria-hidden="true">
+                            <span></span>
+                            <span></span>
+                        </div>
+                    </div>
+                    <div class="window-body">
+                        <div class="case-heading">
+                            <div>
+                                <p id="case-id" class="case-id"></p>
+                                <h2 id="case-title" class="case-title"></h2>
+                                <p id="case-purpose" class="case-purpose"></p>
+                            </div>
+                            <div id="case-badges" class="case-badges"></div>
+                        </div>
+                        <div id="metric-strip" class="metric-strip"></div>
+                    </div>
+                </section>
+
+                <section class="window-panel">
+                    <div class="title-bar">
+                        <div class="title-bar-text">입력과 실행</div>
+                        <div class="title-bar-controls" aria-hidden="true">
+                            <span></span>
+                        </div>
+                    </div>
+                    <div class="window-body pane-grid">
+                        <article class="input-pane">
+                            <div class="section-header">
+                                <div>
+                                    <p class="section-kicker">실행</p>
+                                    <h3>CLI 실행 명령</h3>
+                                </div>
+                                <button class="win-button copy-button" data-copy-target="command-block" type="button">복사</button>
+                            </div>
+                            <pre id="command-block" class="sunken-block"></pre>
+                        </article>
+                        <article class="input-pane">
+                            <div class="section-header">
+                                <div>
+                                    <p class="section-kicker">입력</p>
+                                    <h3>샘플 SQL 파일</h3>
+                                </div>
+                                <button class="win-button copy-button" data-copy-target="sql-block" type="button">복사</button>
+                            </div>
+                            <pre id="sql-block" class="sunken-block"></pre>
+                        </article>
+                    </div>
+                </section>
+
+                <section class="window-panel">
+                    <div class="title-bar">
+                        <div class="title-bar-text">테이블 정의</div>
+                        <div class="title-bar-controls" aria-hidden="true">
+                            <span></span>
+                        </div>
+                    </div>
+                    <div class="window-body">
+                        <div class="table-pair-grid">
+                            <section id="student-definition-panel" class="table-window table-student"></section>
+                            <section id="entry-definition-panel" class="table-window table-entry"></section>
+                        </div>
+                    </div>
+                </section>
+
+                <section class="window-panel">
+                    <div class="title-bar">
+                        <div class="title-bar-text">현재 테이블 상태</div>
+                        <div class="title-bar-controls" aria-hidden="true">
+                            <span></span>
+                        </div>
+                    </div>
+                    <div class="window-body">
+                        <div class="table-pair-grid">
+                            <section id="student-state-panel" class="table-window table-student"></section>
+                            <section id="entry-state-panel" class="table-window table-entry"></section>
+                        </div>
+                    </div>
+                </section>
+
+                <section class="window-panel">
+                    <div class="title-bar">
+                        <div class="title-bar-text">표준 출력과 표준 에러</div>
+                        <div class="title-bar-controls" aria-hidden="true">
+                            <span></span>
+                            <span></span>
+                        </div>
+                    </div>
+                    <div class="window-body">
+                        <div class="pane-grid">
+                            <article class="input-pane">
+                                <div class="section-header">
+                                    <div>
+                                        <p class="section-kicker">출력</p>
+                                        <h3>표준 출력</h3>
+                                    </div>
+                                    <a id="stdout-file-link" class="text-link" href="#">원본 파일</a>
+                                </div>
+                                <pre id="stdout-block" class="sunken-block output-block"></pre>
+                            </article>
+                            <article class="input-pane">
+                                <div class="section-header">
+                                    <div>
+                                        <p class="section-kicker">에러</p>
+                                        <h3>표준 에러</h3>
+                                    </div>
+                                    <a id="stderr-file-link" class="text-link" href="#">원본 파일</a>
+                                </div>
+                                <pre id="stderr-block" class="sunken-block output-block"></pre>
+                            </article>
+                        </div>
+
+                        <div class="section-header artifacts-header">
+                            <div>
+                                <p class="section-kicker">파일</p>
+                                <h3>눌러서 열 파일</h3>
+                            </div>
+                        </div>
+                        <div id="artifact-links" class="artifact-links"></div>
+                    </div>
+                </section>
+            </main>
+        </div>
+    </div>
+
+    <script src="demo_data.js"></script>
+    <script src="app.js"></script>
+</body>
+</html>

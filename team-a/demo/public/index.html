@@ -1,0 +1,62 @@
+<!doctype html>
+<html lang="ko">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>SQL Processor Demo</title>
+  <link rel="stylesheet" href="/styles.css">
+</head>
+<body>
+  <main class="wrap">
+    <h1>SQL Processor 실시간 데모</h1>
+    <p class="muted">Step 1~5: SQL 입력 → Lexer → Parser(AST) → Executor → 결과</p>
+
+    <section class="card">
+      <h2>Step 1. SQL 입력</h2>
+      <div id="examples" class="row"></div>
+      <textarea id="sqlInput" rows="8"></textarea>
+      <div class="row">
+        <button id="runBtn">실행</button>
+      </div>
+    </section>
+
+    <section class="card">
+      <h2>Step 2. Lexer 결과</h2>
+      <div class="tableWrap">
+        <table id="tokenTable">
+          <thead><tr><th>kind</th><th>text</th><th>line</th><th>column</th></tr></thead>
+          <tbody></tbody>
+        </table>
+      </div>
+    </section>
+
+    <section class="card">
+      <h2>Step 3. Parser(AST)</h2>
+      <pre id="astView"></pre>
+    </section>
+
+    <section class="card">
+      <h2>Step 4. Executor 호출</h2>
+      <ul id="executorList"></ul>
+    </section>
+
+    <section class="card">
+      <h2>Step 5. 결과</h2>
+      <div class="grid2">
+        <div>
+          <h3>stdout (TSV)</h3>
+          <pre id="stdoutView"></pre>
+        </div>
+        <div>
+          <h3>stderr</h3>
+          <pre id="stderrView"></pre>
+        </div>
+      </div>
+      <p id="exitCode"></p>
+      <h3>users.csv 변경 diff</h3>
+      <pre id="diffView"></pre>
+    </section>
+  </main>
+  <script src="/app.js"></script>
+</body>
+</html>

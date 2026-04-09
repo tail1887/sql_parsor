@@ -1,0 +1,12 @@
+/manual_runs/
+/sql_processor
+/test_parser
+/test_tokenizer
+/test_step1
+/test_step4
+/test_step5
+/test_step6
+/test_student_storage
+/test_entry_log_storage
+/test_datetime_utils
+.DS_Store
