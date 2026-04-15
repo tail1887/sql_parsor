@@ -1,98 +1,103 @@
 /* WEEK7: B+ tree / primary-key index (see docs/weeks/WEEK7/) */
-#include "week7/bplus_tree.h"
+#include "week7/bplus_tree.h" // bplus_tree.h 헤더 파일을 포함한다.
 
-#include <stdlib.h>
-#include <string.h>
+#include <stdlib.h> // stdlib.h는 표준 라이브러리 헤더 파일로, 메모리 할당과 해제, 수학 함수 등을 정의한다.
+#include <string.h> // string.h는 표준 라이브러리 헤더 파일로, 문자열 함수를 정의한다.
 
-#define BP_MAX_KEYS 3
-#define BP_MAX_CHILDREN (BP_MAX_KEYS + 1)
+#define BP_MAX_KEYS 3 // BP_MAX_KEYS는 3이다. 왜 3인가? 왜냐하면 B+ 트리는 최대 3개의 키를 가질 수 있기 때문이다. 3개의 기본 차수를 가질 수 있기 때문이다.
+#define BP_MAX_CHILDREN (BP_MAX_KEYS + 1) // BP_MAX_CHILDREN는 4이다. 왜 4인가? 왜냐하면 B+ 트리는 최대 3개의 키를 가질 수 있기 때문에 4개의 자식 노드를 가질 수 있기 때문이다.
 
-typedef struct BPNode {
-    int leaf;
-    int nkeys;
-    int64_t keys[BP_MAX_KEYS];
-    union {
-        size_t payloads[BP_MAX_KEYS];
-        struct BPNode *kids[BP_MAX_CHILDREN];
+typedef struct BPNode {// BPNode 구조체 정의
+    int leaf; // leaf는 리프 노드인지 내부 노드인지를 나타내는 변수이다.
+    int nkeys; // nkeys는 노드에 포함된 키의 개수를 나타내는 변수이다. 키는 여러개 있을 수 있기 때문에 개수를 나타내는 변수가 필요하다.
+    int64_t keys[BP_MAX_KEYS]; // keys는 노드에 포함된 키들을 나타내는 배열이다. 키는 여러개 있을 수 있기 때문에 배열로 나타내는 것이 편리하다.
+    // union은 공용체로, 여러 타입의 변수를 하나의 메모리 공간에 저장할 수 있게 해준다. 리프 노드인 경우 payloads 배열을 사용하고, 내부 노드인 경우 kids 배열을 사용한다.
+    union { 
+        size_t payloads[BP_MAX_KEYS]; // payloads는 노드에 포함된 페이로드들을 나타내는 배열이다. 페이로드는 여러개 있을 수 있기 때문에 배열로 나타내는 것이 편리하다.
+        struct BPNode *kids[BP_MAX_CHILDREN]; // kids는 노드에 포함된 자식 노드들을 나타내는 배열이다. 자식 노드는 여러개 있을 수 있기 때문에 배열로 나타내는 것이 편리하다.
     } u;
-    struct BPNode *parent;
-    struct BPNode *next;
+    struct BPNode *parent; // parent는 부모 노드를 나타내는 포인터이다.
+    struct BPNode *next;/* next: 리프 체인만 사용. 키 순서상 오른쪽 형제 리프(범위 스캔용). 내부 노드에서는 NULL(미사용). */
 } BPNode;
 
-struct BPlusTree {
-    BPNode *root;
+struct BPlusTree {// BPlusTree 구조체 정의
+    BPNode *root; // root는 루트 노드를 나타내는 포인터이다.
 };
 
-static BPNode *node_new(int leaf) {
-    BPNode *n = calloc(1, sizeof *n);
-    if (!n) {
+static BPNode *node_new(int leaf) {// node_new 함수 정의 이 함수는 새로운 노드를 생성하는 함수이다.
+    BPNode *n = calloc(1, sizeof *n); // calloc은 메모리 할당 함수로, 주어진 크기의 메모리를 할당하고 0으로 초기화한다.
+    if (!n) { // 메모리 할당 실패 시 NULL 반환 왜 NULL 반환인가? 왜냐하면 메모리 할당 실패 시 프로그램이 종료되기 때문이다.
         return NULL;
     }
-    n->leaf = leaf;
-    return n;
+    n->leaf = leaf; // 노드의 leaf 필드를 설정 리프 노드인지 내부 노드인지를 나타내는 변수이다. 1이면 리프 노드, 0이면 내부 노드이다.
+    return n; // 생성된 노드 반환 생성된 노드를 반환하는 이유는 생성된 노드를 사용하기 위해서이다. 여기서 n의 값은 BPNode 구조체 포인터이다.
 }
 
-static void node_free(BPNode *n) {
-    if (!n) {
+static void node_free(BPNode *n) {// node_free 함수 정의 이 함수는 노드를 해제하는 함수이다.
+    if (!n) { // 노드가 NULL인 경우 즉, 노드가 생성되지 않은 경우 함수를 종료한다.
         return;
     }
-    if (!n->leaf) {
-        for (int i = 0; i <= n->nkeys; i++) {
-            node_free(n->u.kids[i]);
+    if (!n->leaf) { // 노드가 내부 노드인 경우 즉, 노드가 리프 노드가 아닌 경우 자식 노드들을 해제한다.
+        for (int i = 0; i <= n->nkeys; i++) { // 자식 노드들을 해제한다. 순회방법은 0부터 nkeys까지 순회한다.
+            node_free(n->u.kids[i]); // 자식 노드들을 해제한다.
         }
     }
-    free(n);
+    free(n); // 노드를 해제한다. 노드를 해제하는 이유는 메모리 누수를 방지하기 위해서이다. 여기서 free는 stdlib.h 헤더 파일에 정의된 메모리 해제 함수이다.
 }
 
-void bplus_destroy(BPlusTree *t) {
-    if (!t) {
+void bplus_destroy(BPlusTree *t) { // bplus_destroy 함수 정의 이 함수는 BPlusTree를 소멸하는 함수이다.
+    if (!t) { // BPlusTree가 NULL인 경우 즉, BPlusTree가 생성되지 않은 경우 함수를 종료한다.
         return;
     }
-    node_free(t->root);
-    free(t);
+    node_free(t->root); // 루트 노드를 해제한다. 자식노드들도 함께 해제된다.
+    free(t); // BPlusTree를 해제한다. 메모리 누수를 방지하기 위해서이다. 여기서 free는 stdlib.h 헤더 파일에 정의된 메모리 해제 함수이다.
 }
 
-BPlusTree *bplus_create(void) {
-    BPlusTree *t = malloc(sizeof *t);
-    if (!t) {
+BPlusTree *bplus_create(void) { // bplus_create 함수 정의 이 함수는 BPlusTree를 생성하는 함수이다.
+    BPlusTree *t = malloc(sizeof *t); // malloc은 메모리 할당 함수로, 주어진 크기의 메모리를 할당한다. 여기서 sizeof *t는 BPlusTree 구조체 크기를 나타낸다.
+    if (!t) { // 메모리 할당 실패 시 NULL 반환 왜 NULL 반환인가? 왜냐하면 메모리 할당 실패 시 프로그램이 종료되기 때문이다.
         return NULL;
     }
-    t->root = node_new(1);
-    if (!t->root) {
-        free(t);
+    t->root = node_new(1); // 루트 노드를 생성한다. 리프 노드로 초기화한다. 
+    if (!t->root) { // 루트 노드 생성 실패 시 NULL 반환 왜 NULL 반환인가? 왜냐하면 루트 노드 생성 실패 시 프로그램이 종료되기 때문이다.
+        free(t); // BPlusTree를 해제한다. 메모리 누수를 방지하기 위해서이다. 여기서 free는 stdlib.h 헤더 파일에 정의된 메모리 해제 함수이다.
         return NULL;
     }
-    return t;
+    return t; // 생성된 BPlusTree 반환 생성된 BPlusTree를 반환하는 이유는 생성된 BPlusTree를 사용하기 위해서이다. 여기서 t의 값은 BPlusTree 구조체 포인터이다.
 }
 
-static BPNode *find_leaf(const BPlusTree *t, int64_t key) {
-    BPNode *x = t->root;
-    while (!x->leaf) {
-        int i = x->nkeys;
-        for (int j = 0; j < x->nkeys; j++) {
+static BPNode *find_leaf(const BPlusTree *t, int64_t key) { // find_leaf 함수 정의 이 함수는 리프 노드를 찾는 함수이다.
+    BPNode *x = t->root; // 루트 노드를 찾는다. 루트 노드는 BPlusTree의 최상위 노드이다.
+    // 루트 노드가 리프 노드가 아닌 경우 즉, 루트 노드가 내부 노드인 경우 자식 노드를 찾는다.
+    while (!x->leaf) {  
+        int i = x->nkeys; // 노드에 포함된 키의 개수를 나타내는 변수이다.
+        // 노드에 포함된 키들을 순회한다.
+        for (int j = 0; j < x->nkeys; j++) { // 순회방법은 0부터 nkeys까지 순회한다.
+            // 키가 노드에 포함된 키보다 작은경우
             if (key < x->keys[j]) {
-                i = j;
+                i = j; 
                 break;
             }
             i = j + 1;
         }
-        x = x->u.kids[i];
+        x = x->u.kids[i]; // 한층 아래로 이동한다.
     }
+    // 리프 노드를 반환한다. 리프 노드는 노드에 포함된 키들을 정렬한 후 키가 작은 순서대로 정렬된 노드이다.
     return x;
 }
 
-int bplus_search(const BPlusTree *t, int64_t key, size_t *payload) {
-    if (!t || !t->root || !payload) {
+int bplus_search(const BPlusTree *t, int64_t key, size_t *payload) { // bplus_search 함수 정의 이 함수는 BPlusTree에서 키를 검색하는 함수이다.
+    if (!t || !t->root || !payload) { // BPlusTree가 NULL인 경우 즉, BPlusTree가 생성되지 않은 경우 또는 payload가 NULL인 경우 즉, payload가 생성되지 않은 경우 함수를 종료한다.
         return -1;
     }
-    BPNode *leaf = find_leaf(t, key);
-    for (int i = 0; i < leaf->nkeys; i++) {
-        if (leaf->keys[i] == key) {
-            *payload = leaf->u.payloads[i];
-            return 0;
+    BPNode *leaf = find_leaf(t, key); // 리프 노드를 찾는다.
+    for (int i = 0; i < leaf->nkeys; i++) { // 리프 노드에 포함된 키들을 순회한다.
+        if (leaf->keys[i] == key) { // 키가 리프 노드에 포함된 키와 같은 경우
+            *payload = leaf->u.payloads[i]; // payload를 설정한다.
+            return 0; // 0을 반환한다.
         }
-    }
-    return -1;
+    } // 키가 리프 노드에 포함된 키와 같지 않은 경우 -1을 반환한다.
+    return -1; // -1을 반환한다.
 }
 
 static void leaf_insert_sorted(BPNode *leaf, int64_t key, size_t payload) {
