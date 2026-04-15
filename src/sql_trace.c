@@ -84,6 +84,8 @@ static const char *token_kind_name(TokenKind kind) {
         return "TOKEN_SELECT";
     case TOKEN_FROM:
         return "TOKEN_FROM";
+    case TOKEN_WHERE:
+        return "TOKEN_WHERE";
     case TOKEN_NULL:
         return "TOKEN_NULL";
     case TOKEN_IDENTIFIER:
@@ -102,6 +104,8 @@ static const char *token_kind_name(TokenKind kind) {
         return "TOKEN_SEMICOLON";
     case TOKEN_STAR:
         return "TOKEN_STAR";
+    case TOKEN_EQ:
+        return "TOKEN_EQ";
     case TOKEN_PLUS:
         return "TOKEN_PLUS";
     case TOKEN_MINUS:

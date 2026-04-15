@@ -14,12 +14,14 @@
 
 ## 2) 종료 코드 (exit code)
 
-| Code | 의미 |
-| --- | --- |
-| `0` | 스크립트 전체 성공(모든 문장 처리 완료) |
-| `1` | 잘못된 CLI 사용(인자 개수 등) |
-| `2` | 구문 오류(SQL parse error) |
-| `3` | 실행 오류(테이블 없음, 컬럼 수 불일치, I/O 실패 등) |
+
+| Code | 의미                                |
+| ---- | --------------------------------- |
+| `0`  | 스크립트 전체 성공(모든 문장 처리 완료)           |
+| `1`  | 잘못된 CLI 사용(인자 개수 등)               |
+| `2`  | 구문 오류(SQL parse error)            |
+| `3`  | 실행 오류(테이블 없음, 컬럼 수 불일치, I/O 실패 등) |
+
 
 구현체는 위 구분을 유지하는 한, 세부 숫자는 조정 가능하나 **문서·테스트와 함께** 변경한다.
 
@@ -61,7 +63,13 @@ INSERT INTO <table> VALUES ( <value_list> );
 INSERT 성공 시: 대상 CSV **마지막에 데이터 행 한 줄** 추가(RFC 4180 스타일 따옴표·이스케이프로 직렬화).
 
 - 파서(INSERT만): `parser_parse_insert` → `InsertStmt` (`include/parser.h`, `include/ast.h`). 문장 끝은 `;` 또는 입력 끝(EOF) 허용.
-- 파서(SELECT MVP): `parser_parse_select` -> `SelectStmt` (`include/parser.h`, `include/ast.h`). `SELECT *` 또는 `SELECT col, ... FROM <table>` 형태를 해석.
+- 파서(SELECT MVP): `parser_parse_select` -> `SelectStmt` (`include/parser.h`, `include/ast.h`). `SELECT` * 또는 `SELECT col, ... FROM <table>` 형태를 해석.
+
+#### WEEK7: 첫 컬럼이 `id` 인 테이블(자동 증가 PK)
+
+- CSV 헤더 **첫 번째 컬럼 이름**이 대소문자 무시로 `id` 이면 **자동 증가 정수 PK** 로 취급한다.
+- `INSERT` 시 **첫 번째 값은 무시**되고, 내부 `next_id`(기존 파일에 있는 최대 `id` + 1)가 첫 컬럼에 기록된다.
+- 값 개수는 **(컬럼 수 − 1)** 개만 넘겨도 되며, 이 경우 나머지 컬럼만 VALUES에 나열하면 된다(첫 `id`는 자동 부여).
 
 ### 4.2 SELECT
 
@@ -72,7 +80,18 @@ SELECT <column> [, <column> ...] FROM <table> ;
 
 - `*`: 모든 컬럼을 헤더 순서대로 출력.
 - 컬럼 목록: 헤더에 존재하는 이름만 허용. 순서는 **쿼리에 적힌 순서**.
-- **Stretch**: `WHERE <column> = <literal>` 형태는 `docs/01-product-planning.md` 의 Optional 에 따른다. MVP 에 포함하지 않으면 **파싱 시 구문 오류**로 거절해도 된다.
+
+#### WEEK7: `WHERE id = <정수>` (인덱스 조회)
+
+```sql
+SELECT * FROM <table> WHERE id = <integer> ;
+SELECT <column> [, <column> ...] FROM <table> WHERE id = <integer> ;
+```
+
+- **지원**: `WHERE` 다음에 식별자 `**id`**(대소문자 무시), `=`, **정수 리터럴** 만 허용. 그 외 `WHERE` 패턴은 **구문 오류**(파싱 실패).
+- **전제**: 위와 같이 첫 컬럼이 `id` 인 테이블에서만 실행 계층에서 인덱스를 사용한다. `id` PK가 아닌 테이블에 이 절을 쓰면 **실행 오류**(종료 코드 `3` 근처)로 처리한다.
+- **일치 행 없음**: stdout 에 **헤더만** 출력하고 데이터 행은 없음(성공, 종료 코드 `0`).
+- 그 외 `SELECT` 는 기존처럼 **전체 테이블 스캔**이다.
 
 ### 4.3 출력 포맷 (stdout)
 
@@ -85,7 +104,7 @@ SELECT <column> [, <column> ...] FROM <table> ;
 - 공백·개행은 토큰 사이에 자유롭게 허용.
 - `--` 로 시작하는 줄은 **행 주석**으로 무시한다(MVP 권장).
 - 문자열 리터럴은 §4.1과 같이 **작은따옴표** (`'...'`, 내부 `''`) 기준으로 토큰화한다.
-- Lexer 구현체: `include/lexer.h`, `src/lexer.c` — 토큰 종류는 `TokenKind` 열거형에 맞춘다(MVP 키워드: `INSERT`, `INTO`, `VALUES`, `SELECT`, `FROM`, `NULL`).
+- Lexer 구현체: `include/lexer.h`, `src/lexer.c` — 토큰 종류는 `TokenKind` 열거형에 맞춘다(MVP 키워드: `INSERT`, `INTO`, `VALUES`, `SELECT`, `FROM`, `NULL`, WEEK7: `WHERE`, `=` → `TOKEN_EQ`).
 
 ## 6) 에러 메시지 (stderr)
 
@@ -102,17 +121,20 @@ io error: failed to open data/missing.csv
 
 ## 7) 파일·테이블 엣지 케이스
 
-| 상황 | 기대 동작 |
-| --- | --- |
-| `data/<table>.csv` 없음 + INSERT | 종료 코드 `3`, stderr (테이블/파일 없음) |
-| `data/<table>.csv` 없음 + SELECT | 종료 코드 `3` |
-| 헤더만 있는 CSV + SELECT | 헤더만 출력 후 행 없음 |
-| INSERT 값 개수 ≠ 컬럼 수 | 종료 코드 `3`, stderr |
-| NULL 저장 표현 | 빈 필드(예: `a,,b`) |
-| 따옴표·콤마 포함 문자열 | 파서·CSV 직렬화가 RFC 4180 스타일과 호환되게 처리 |
+
+| 상황                             | 기대 동작                             |
+| ------------------------------ | --------------------------------- |
+| `data/<table>.csv` 없음 + INSERT | 종료 코드 `3`, stderr (테이블/파일 없음)     |
+| `data/<table>.csv` 없음 + SELECT | 종료 코드 `3`                         |
+| 헤더만 있는 CSV + SELECT            | 헤더만 출력 후 행 없음                     |
+| INSERT 값 개수 ≠ 컬럼 수             | 종료 코드 `3`, stderr                 |
+| NULL 저장 표현                     | 빈 필드(예: `a,,b`)                   |
+| 따옴표·콤마 포함 문자열                  | 파서·CSV 직렬화가 RFC 4180 스타일과 호환되게 처리 |
+
 
 ## 8) 오픈 이슈
 
-- [ ] 실수 리터럴 지원 여부
-- [ ] SELECT 출력을 TSV 고정 vs CSV 고정
-- [ ] Stretch WHERE 채택 시 비교 연산·타입 규칙
+- 실수 리터럴 지원 여부
+- SELECT 출력을 TSV 고정 vs CSV 고정
+- Stretch WHERE 채택 시 비교 연산·타입 규칙
+

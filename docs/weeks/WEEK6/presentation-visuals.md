@@ -1,6 +1,6 @@
-# 07. 발표용 시각화 다이어그램 모음
+# 발표 시각화 — 다이어그램 모음
 
-이 문서는 `docs/06-presentation-script-4min.md` 대본 순서에 맞춘 시각화 자료입니다.  
+이 문서는 `[presentation-script.md](presentation-script.md)` 대본 순서에 맞춘 시각화 자료입니다.  
 발표 중에는 섹션 제목과 다이어그램만 보여주고, 설명은 대본으로 진행하면 가장 깔끔합니다.
 
 ---
@@ -66,6 +66,8 @@ flowchart LR
     a4 --> a7["Exit 0"]
 ```
 
+
+
 ### B조 (CLI)
 
 ```mermaid
@@ -96,6 +98,8 @@ flowchart LR
     a3 --> a4["Parser"]
 ```
 
+
+
 ### B조 (Tokenizer)
 
 ```mermaid
@@ -122,6 +126,8 @@ flowchart LR
     a1["TokenStream"] --> a2["Parser"]
     a2 --> a3["General Insert/Select AST"]
 ```
+
+
 
 ### B조 (Parser)
 
@@ -150,6 +156,8 @@ flowchart LR
     a2 --> a3["SELECT -> ReadCSV -> stdout"]
     a2 --> a4["INSERT -> AppendCSV -> data"]
 ```
+
+
 
 ### B조 (Executor + Storage)
 
@@ -181,6 +189,8 @@ flowchart LR
     aUser --> aTsv["TSV_조회출력"]
     aData --> aCsv["users_csv"]
 ```
+
+
 
 ### B조 (실행 결과)
 

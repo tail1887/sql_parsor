@@ -4,12 +4,14 @@ MVP 범위는 `docs/01-product-planning.md`를 따른다.
 
 ## 1) 기술 스택 선택 이유
 
-| 영역 | 선택 기술 | 선택 이유 | 대안 |
-| --- | --- | --- | --- |
-| 언어 | C (C11 권장) | 과제 요구사항, 저수준 I/O·메모리 이해 | C++ (과제 범위 밖이면 비권장) |
-| 빌드 | CMake | 크로스 플랫폼, CTest 통합 | Makefile만 (Windows 팀원 고려 시 CMake 우선) |
-| 테스트 | CTest + 테스트 실행 파일 또는 스크립트 | 회귀·발표 시 검증 재현 | 수동 실행만 (비권장) |
-| 저장소 | OS 파일시스템 + **CSV** | 디버깅·발표·diff 용이 | 바이너리(구현 부담↑) |
+
+| 영역  | 선택 기술                     | 선택 이유                   | 대안                                   |
+| --- | ------------------------- | ----------------------- | ------------------------------------ |
+| 언어  | C (C11 권장)                | 과제 요구사항, 저수준 I/O·메모리 이해 | C++ (과제 범위 밖이면 비권장)                  |
+| 빌드  | CMake                     | 크로스 플랫폼, CTest 통합       | Makefile만 (Windows 팀원 고려 시 CMake 우선) |
+| 테스트 | CTest + 테스트 실행 파일 또는 스크립트 | 회귀·발표 시 검증 재현           | 수동 실행만 (비권장)                         |
+| 저장소 | OS 파일시스템 + **CSV**        | 디버깅·발표·diff 용이          | 바이너리(구현 부담↑)                         |
+
 
 ## 2) 시스템 구성
 
@@ -22,8 +24,11 @@ flowchart LR
     AST --> Exec[Executor]
     Exec --> Store[Storage_CSV]
     Store --> FS[(data_table_csv)]
+    Exec --> Idx[Week7_BplusIndex]
     Exec --> Out[Stdout]
 ```
+
+
 
 설명:
 
@@ -32,6 +37,7 @@ flowchart LR
 - **Parser**: 토큰에서 **INSERT** / **SELECT** 구문 트리를 만든다.
 - **Executor**: AST를 해석해 Storage를 호출하고, SELECT 결과를 stdout에 포맷한다.
 - **Storage**: 논리 테이블명을 물리 경로로 매핑해 **fopen / append / read** 한다.
+- **Week7_BplusIndex**: CSV 헤더 첫 컬럼이 `id`인 테이블에 한해, 프로세스 메모리 B+ 트리로 PK 룩업·자동 증가 `id`를 지원한다(상세는 `docs/weeks/WEEK7/sequences.md`).
 
 ## 3) 레이어 구조
 
@@ -100,7 +106,10 @@ data/
 
 ## 6) 핵심 시퀀스
 
-### 한 문장 실행 (INSERT 예시)
+**6.1·6.2**는 6주차까지의 **MVP 실행 흐름**이다(기존과 동일).  
+**WEEK7(B+ 인덱스 연계)** 용 시퀀스는 학습·설계 분리를 위해 `[docs/weeks/WEEK7/sequences.md](weeks/WEEK7/sequences.md)`에만 상세 다이어그램을 둔다. 코드에서는 `executor` 등에 문서 경로를 주석으로만 짚어도 된다.
+
+### 6.1 MVP — INSERT 한 문장
 
 ```mermaid
 sequenceDiagram
@@ -117,7 +126,9 @@ sequenceDiagram
     E-->>M: status
 ```
 
-### 한 문장 실행 (SELECT 예시)
+
+
+### 6.2 MVP — SELECT 한 문장
 
 ```mermaid
 sequenceDiagram
@@ -134,9 +145,19 @@ sequenceDiagram
     E-->>M: print_stdout
 ```
 
+
+
+### 6.3 WEEK7 연계 — 시퀀스 다이어그램 위치
+
+B+ 트리·자동 `id`·`WHERE id = …` 가 붙은 뒤의 **INSERT / SELECT(인덱스 vs 풀스캔)** 시퀀스는 파일이 길어질 수 있으므로, **이 저장소에서는 주차 문서로만** 관리한다.
+
+- **파일**: `[docs/weeks/WEEK7/sequences.md](weeks/WEEK7/sequences.md)`
+- **갱신 시점**: 인덱스 삽입 시점, 룩업 실패 시 정책, `read_all` 대신 부분 읽기 API 등이 코드에 반영될 때마다 위 파일과 필요 시 `docs/03-api-reference.md`를 함께 맞춘다.
+
 ## 7) 운영·실행 메모
 
 - **빌드 산출물**: CMake 기본 빌드 트리 `build/` (gitignore 권장).
 - **Windows**: Visual Studio 생성기 사용 시 실행 파일이 `build/Debug/sql_processor.exe` 또는 `build/Release/sql_processor.exe` 일 수 있다. README에 **두 경우**를 명시한다.
 - **환경 변수**: MVP 에서 필수 아님.
 - **로깅**: stderr 에 human-readable 메시지로 충분.
+

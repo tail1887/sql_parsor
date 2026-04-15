@@ -37,14 +37,14 @@ set(CMAKE_C_EXTENSIONS OFF)
 
 # [add_executable] 지정한 .c 들을 컴파일·링크해 “실행 파일 타깃” 하나를 만듭니다.
 # 산출물은 빌드 트리(예: build/) 아래에 생성됩니다.
-add_executable(sql_processor src/main.c src/sql_processor.c src/lexer.c src/parser.c src/ast.c src/csv_storage.c src/executor.c)
+add_executable(sql_processor src/main.c src/sql_processor.c src/lexer.c src/parser.c src/ast.c src/csv_storage.c src/executor.c src/week7/bplus_tree.c src/week7/week7_index.c)
 
 # [target_include_directories] 이 타깃을 컴파일할 때만 헤더 검색 경로(-I)에 넣습니다.
 # PRIVATE: 이 타깃 빌드에만 쓰이고 다른 타깃에 전파하지 않음(sql_processor 전용).
 target_include_directories(sql_processor PRIVATE "${CMAKE_CURRENT_SOURCE_DIR}/include")
 
 # 데모용 trace 실행 파일: 표준 실행 + 단계별 JSONL 추적 출력.
-add_executable(sql_processor_trace src/main_trace.c src/sql_trace.c src/lexer.c src/parser.c src/ast.c src/csv_storage.c src/executor.c)
+add_executable(sql_processor_trace src/main_trace.c src/sql_trace.c src/lexer.c src/parser.c src/ast.c src/csv_storage.c src/executor.c src/week7/bplus_tree.c src/week7/week7_index.c)
 target_include_directories(sql_processor_trace PRIVATE "${CMAKE_CURRENT_SOURCE_DIR}/include")
 
 # CTest용 스모크 테스트 실행 파일 — tests/test_bootstrap.c 를 별도 타깃으로 빌드합니다.
@@ -65,11 +65,19 @@ target_include_directories(test_parser_select PRIVATE "${CMAKE_CURRENT_SOURCE_DI
 add_executable(test_csv_storage tests/test_csv_storage.c src/csv_storage.c src/ast.c)
 target_include_directories(test_csv_storage PRIVATE "${CMAKE_CURRENT_SOURCE_DIR}/include")
 
-add_executable(test_executor tests/test_executor.c src/executor.c src/csv_storage.c src/parser.c src/ast.c src/lexer.c)
+add_executable(test_executor tests/test_executor.c src/executor.c src/csv_storage.c src/parser.c src/ast.c src/lexer.c src/week7/bplus_tree.c src/week7/week7_index.c)
 target_include_directories(test_executor PRIVATE "${CMAKE_CURRENT_SOURCE_DIR}/include")
 
-add_executable(test_main_integration tests/test_main_integration.c src/sql_processor.c src/executor.c src/csv_storage.c src/parser.c src/ast.c src/lexer.c)
+add_executable(test_main_integration tests/test_main_integration.c src/sql_processor.c src/executor.c src/csv_storage.c src/parser.c src/ast.c src/lexer.c src/week7/bplus_tree.c src/week7/week7_index.c)
 target_include_directories(test_main_integration PRIVATE "${CMAKE_CURRENT_SOURCE_DIR}/include")
+
+# WEEK7: B+ tree unit tests (docs/weeks/WEEK7/implementation-order.md 단계 1)
+add_executable(test_bplus_tree tests/test_bplus_tree.c src/week7/bplus_tree.c)
+target_include_directories(test_bplus_tree PRIVATE "${CMAKE_CURRENT_SOURCE_DIR}/include")
+
+# WEEK7: 대량 벤치(CTest 미등록 — 로컬에서만 실행 권장)
+add_executable(bench_bplus src/bench_bplus.c src/week7/bplus_tree.c)
+target_include_directories(bench_bplus PRIVATE "${CMAKE_CURRENT_SOURCE_DIR}/include")
 
 # ------------------------------------------------------------------------------
 # 3. 테스트 자동화 (CTest)
@@ -100,6 +108,7 @@ add_test(NAME parser_select_unit COMMAND $<TARGET_FILE:test_parser_select>)
 add_test(NAME csv_storage_unit COMMAND $<TARGET_FILE:test_csv_storage>)
 add_test(NAME executor_unit COMMAND $<TARGET_FILE:test_executor>)
 add_test(NAME main_integration COMMAND $<TARGET_FILE:test_main_integration>)
+add_test(NAME bplus_tree_unit COMMAND $<TARGET_FILE:test_bplus_tree>)
 
 set_tests_properties(bootstrap_smoke lexer_unit parser_insert_unit parser_select_unit csv_storage_unit executor_unit
-                     main_integration PROPERTIES WORKING_DIRECTORY "${CMAKE_CURRENT_SOURCE_DIR}")
+                     main_integration bplus_tree_unit PROPERTIES WORKING_DIRECTORY "${CMAKE_CURRENT_SOURCE_DIR}")

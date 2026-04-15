@@ -323,6 +323,69 @@ int csv_storage_append_insert_row(const char *table, const SqlValue *values, siz
     return 0;
 }
 
+int csv_storage_column_count(const char *table, size_t *out_count) {
+    if (!table || !out_count) {
+        return -1;
+    }
+    *out_count = 0;
+    char path[512];
+    if (build_table_path(table, path, sizeof path) != 0) {
+        return -1;
+    }
+    FILE *fp = fopen(path, "rb");
+    if (!fp) {
+        return -1;
+    }
+    char line[CSV_LINE_CAP];
+    if (!fgets(line, sizeof line, fp)) {
+        fclose(fp);
+        return -1;
+    }
+    char **cells = NULL;
+    size_t n = 0;
+    if (parse_csv_line(line, &cells, &n) != 0) {
+        fclose(fp);
+        return -1;
+    }
+    free_cells(cells, n);
+    fclose(fp);
+    *out_count = n;
+    return 0;
+}
+
+int csv_storage_data_row_count(const char *table, size_t *out_count) {
+    if (!table || !out_count) {
+        return -1;
+    }
+    *out_count = 0;
+    char path[512];
+    if (build_table_path(table, path, sizeof path) != 0) {
+        return -1;
+    }
+    FILE *fp = fopen(path, "rb");
+    if (!fp) {
+        return -1;
+    }
+    char line[CSV_LINE_CAP];
+    if (!fgets(line, sizeof line, fp)) {
+        fclose(fp);
+        return -1;
+    }
+    size_t rows = 0;
+    while (fgets(line, sizeof line, fp)) {
+        size_t i = 0;
+        while (line[i] == ' ' || line[i] == '\t' || line[i] == '\r' || line[i] == '\n') {
+            i++;
+        }
+        if (line[i] != '\0') {
+            rows++;
+        }
+    }
+    fclose(fp);
+    *out_count = rows;
+    return 0;
+}
+
 void csv_storage_free_table(CsvTable *table) {
     if (!table) {
         return;

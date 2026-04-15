@@ -3,60 +3,53 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>SQL Processor Demo</title>
+  <title>SQL Processor 데모</title>
   <link rel="stylesheet" href="/styles.css">
 </head>
-<body>
-  <main class="wrap">
-    <h1>SQL Processor 실시간 데모</h1>
-    <p class="muted">Step 1~5: SQL 입력 → Lexer → Parser(AST) → Executor → 결과</p>
+<body data-nav-page="home">
+  <nav class="topnav" aria-label="주차 데모">
+    <a class="brand" href="/">SQL Processor</a>
+    <div class="nav-links">
+      <a href="/" data-nav="home">홈</a>
+      <a href="/week6.html" data-nav="week6">Week 6</a>
+      <a href="/week7.html" data-nav="week7">Week 7</a>
+    </div>
+  </nav>
 
-    <section class="card">
-      <h2>Step 1. SQL 입력</h2>
-      <div id="examples" class="row"></div>
-      <textarea id="sqlInput" rows="8"></textarea>
-      <div class="row">
-        <button id="runBtn">실행</button>
+  <main class="wrap home">
+    <header class="hero">
+      <h1>SQL Processor 브라우저 데모</h1>
+      <p class="lead">
+        저장소의 <code>sql_processor_trace</code> 를 호출해, SQL이 Lexer → Parser(AST) → Executor 를 거치는 과정과 실행 결과를 한 화면에서 확인합니다.
+      </p>
+    </header>
+
+    <section class="card pick">
+      <h2>주차별로 열기</h2>
+      <p class="muted">6주차는 MVP 파이프라인, 7주차는 자동 PK·B+ 인덱스·<code>WHERE id =</code> 중심 예제입니다.</p>
+      <div class="tiles">
+        <a class="tile" href="/week6.html">
+          <span class="tile-label">Week 6</span>
+          <strong>INSERT / SELECT 파이프라인</strong>
+          <span class="muted small">토큰·AST·CSV diff</span>
+        </a>
+        <a class="tile" href="/week7.html">
+          <span class="tile-label">Week 7</span>
+          <strong>학습 가이드 단계별 실습</strong>
+          <span class="muted small">단계 1~7 · 터미널+SQL · Lexer~결과</span>
+        </a>
       </div>
     </section>
 
     <section class="card">
-      <h2>Step 2. Lexer 결과</h2>
-      <div class="tableWrap">
-        <table id="tokenTable">
-          <thead><tr><th>kind</th><th>text</th><th>line</th><th>column</th></tr></thead>
-          <tbody></tbody>
-        </table>
-      </div>
-    </section>
-
-    <section class="card">
-      <h2>Step 3. Parser(AST)</h2>
-      <pre id="astView"></pre>
-    </section>
-
-    <section class="card">
-      <h2>Step 4. Executor 호출</h2>
-      <ul id="executorList"></ul>
-    </section>
-
-    <section class="card">
-      <h2>Step 5. 결과</h2>
-      <div class="grid2">
-        <div>
-          <h3>stdout (TSV)</h3>
-          <pre id="stdoutView"></pre>
-        </div>
-        <div>
-          <h3>stderr</h3>
-          <pre id="stderrView"></pre>
-        </div>
-      </div>
-      <p id="exitCode"></p>
-      <h3>users.csv 변경 diff</h3>
-      <pre id="diffView"></pre>
+      <h2>실행 방법</h2>
+      <ol class="steps-list">
+        <li>저장소 루트에서 <code>sql_processor_trace</code> 타깃을 빌드합니다.</li>
+        <li><code>demo</code> 폴더에서 <code>npm install</code> 후 <code>npm start</code> 를 실행합니다.</li>
+        <li>브라우저에서 이 페이지 주소(기본 <code>http://localhost:4010</code>)로 접속합니다.</li>
+      </ol>
     </section>
   </main>
-  <script src="/app.js"></script>
+  <script src="/nav.js"></script>
 </body>
 </html>

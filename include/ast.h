@@ -1,7 +1,8 @@
-﻿#ifndef AST_H
+#ifndef AST_H
 #define AST_H
 
 #include <stddef.h>
+#include <stdint.h>
 
 /** VALUES 절 리터럴 종류 (docs/03-api-reference.md §4.1). */
 typedef enum {
@@ -35,6 +36,9 @@ typedef struct {
     char **columns;       //select_all==0 일 때 컬럼 목록
     size_t column_count;  //컬럼 개수
     char *table;          //FROM 테이블 이름
+    /* WEEK7: WHERE id = <정수> 만 지원; 없으면 has_where_id_eq==0 */
+    int has_where_id_eq;
+    int64_t where_id_value;
 } SelectStmt;
 
 void ast_insert_stmt_free(InsertStmt *stmt); //INSERT AST 해제

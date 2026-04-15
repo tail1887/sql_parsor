@@ -3,6 +3,7 @@
 #include "executor.h"
 #include "lexer.h"
 #include "parser.h"
+#include "week7/week7_index.h"
 
 #include <stdio.h>
 #include <stdlib.h>
@@ -14,6 +15,7 @@ static int fail(const char *m) {
 }
 
 static int seed_exec_table(void) {
+    week7_reset();
     FILE *fp = fopen("data/test_exec.csv", "wb");
     if (!fp) return -1;
     fputs("id,name,email\n", fp);
@@ -22,6 +24,7 @@ static int seed_exec_table(void) {
 }
 
 static void cleanup_exec_table(void) {
+    week7_reset();
     remove("data/test_exec.csv");
     remove("data/test_exec_out.txt");
 }
@@ -145,6 +148,66 @@ static int test_select_exec_columns(void) {
     return 0;
 }
 
+static int test_select_where_hit(void) {
+    SelectStmt *st = NULL;
+    if (parse_select_sql("SELECT * FROM test_exec WHERE id = 2;", &st) != 0 || !st) {
+        return fail("parse where");
+    }
+    FILE *fp = fopen("data/test_exec_out.txt", "wb+");
+    if (!fp) {
+        ast_select_stmt_free(st);
+        return fail("open where out");
+    }
+    if (executor_execute_select(st, fp) != 0) {
+        fclose(fp);
+        ast_select_stmt_free(st);
+        return fail("exec where");
+    }
+    fflush(fp);
+    fseek(fp, 0, SEEK_SET);
+    char buf[1024] = {0};
+    (void)fread(buf, 1, sizeof(buf) - 1, fp);
+    fclose(fp);
+    ast_select_stmt_free(st);
+    if (strstr(buf, "id\tname\temail\n") == NULL) {
+        return fail("where header");
+    }
+    if (strstr(buf, "2\tbob\t\n") == NULL) {
+        return fail("where single row");
+    }
+    return 0;
+}
+
+static int test_select_where_miss(void) {
+    SelectStmt *st = NULL;
+    if (parse_select_sql("SELECT * FROM test_exec WHERE id = 999;", &st) != 0 || !st) {
+        return fail("parse miss");
+    }
+    FILE *fp = fopen("data/test_exec_out.txt", "wb+");
+    if (!fp) {
+        ast_select_stmt_free(st);
+        return fail("open miss out");
+    }
+    if (executor_execute_select(st, fp) != 0) {
+        fclose(fp);
+        ast_select_stmt_free(st);
+        return fail("exec miss");
+    }
+    fflush(fp);
+    fseek(fp, 0, SEEK_SET);
+    char buf[1024] = {0};
+    (void)fread(buf, 1, sizeof(buf) - 1, fp);
+    fclose(fp);
+    ast_select_stmt_free(st);
+    if (strstr(buf, "id\tname\temail\n") == NULL) {
+        return fail("miss header");
+    }
+    if (strstr(buf, "alice") != NULL || strstr(buf, "bob") != NULL) {
+        return fail("miss no data");
+    }
+    return 0;
+}
+
 int main(void) {
     cleanup_exec_table();
     if (seed_exec_table() != 0) return fail("seed table");
@@ -158,6 +221,14 @@ int main(void) {
         return 1;
     }
     if (test_select_exec_columns() != 0) {
+        cleanup_exec_table();
+        return 1;
+    }
+    if (test_select_where_hit() != 0) {
+        cleanup_exec_table();
+        return 1;
+    }
+    if (test_select_where_miss() != 0) {
         cleanup_exec_table();
         return 1;
     }

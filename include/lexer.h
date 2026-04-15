@@ -14,6 +14,7 @@ typedef enum {
     TOKEN_VALUES, /* INSERT 문 안에서 괄호 값 목록 앞: `VALUES (v1, v2, ...)` 의 VALUES */
     TOKEN_SELECT, /* 조회 문장 시작: `SELECT *` 또는 `SELECT col,...` 후 FROM 으로 이어짐 (§4.2) */
     TOKEN_FROM,   /* SELECT 에서 테이블 지정: `FROM <테이블>` 의 FROM */
+    TOKEN_WHERE,  /* WEEK7: WHERE 절 시작 */
     TOKEN_NULL,   /* 값 자리의 NULL 리터럴; 식별자 `null` 과 동일 규칙으로 읽혀 구분(대소문자 무시) */
 
     /* --- 식별자·리터럴 --- */
@@ -27,6 +28,7 @@ typedef enum {
     TOKEN_COMMA,       /* , */
     TOKEN_SEMICOLON,   /* ; */
     TOKEN_STAR,        /* * */
+    TOKEN_EQ,          /* WEEK7: = */
     TOKEN_PLUS,        /* 단독 + */
     TOKEN_MINUS,       /* 단독 - */
 } TokenKind;

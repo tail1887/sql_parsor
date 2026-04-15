@@ -1,3 +1,5 @@
+const demoWeek = document.body.getAttribute("data-demo-week") || "6";
+
 const sqlInput = document.getElementById("sqlInput");
 const runBtn = document.getElementById("runBtn");
 const tokenBody = document.querySelector("#tokenTable tbody");
@@ -72,10 +74,11 @@ function render(events, result) {
 }
 
 async function loadExamples() {
-  const res = await fetch("/api/examples");
+  const res = await fetch("/api/examples?week=" + encodeURIComponent(demoWeek));
   const data = await res.json();
   for (const ex of data.examples || []) {
     const btn = document.createElement("button");
+    btn.type = "button";
     btn.textContent = ex.label;
     btn.addEventListener("click", () => {
       sqlInput.value = ex.sql;

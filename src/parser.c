@@ -1,7 +1,19 @@
-﻿#include "parser.h"
+#include "parser.h"
 
+#include <ctype.h>
 #include <stdlib.h>
 #include <string.h>
+
+#include <stdint.h>
+
+static int ident_is_id(const Token *t) {
+    if (!t || t->kind != TOKEN_IDENTIFIER || t->text_len != 2) {
+        return 0;
+    }
+    char a = (char)toupper((unsigned char)t->text[0]);
+    char b = (char)toupper((unsigned char)t->text[1]);
+    return a == 'I' && b == 'D';
+}
 
 //문자열을 복사할 때 사용하는 함수.
 static char *dup_slice(const char *s, size_t n) {
@@ -296,7 +308,49 @@ int parser_parse_select(Lexer *lex, SelectStmt **out) {
         free_columns_partial(cols, ncols);
         return -1;
     }
-    if (t.kind != TOKEN_SEMICOLON && t.kind != TOKEN_EOF) {
+
+    int has_where = 0;
+    int64_t where_id = 0;
+    if (t.kind == TOKEN_SEMICOLON || t.kind == TOKEN_EOF) {
+        has_where = 0;
+    } else if (t.kind == TOKEN_WHERE) {
+        Token idtok;
+        if (lexer_next(lex, &idtok) != 0 || !ident_is_id(&idtok)) {
+            free(table);
+            free_columns_partial(cols, ncols);
+            return -1;
+        }
+        if (lexer_expect(lex, TOKEN_EQ, &t) != 0) {
+            free(table);
+            free_columns_partial(cols, ncols);
+            return -1;
+        }
+        Token inttok;
+        if (lexer_next(lex, &inttok) != 0 || inttok.kind != TOKEN_INTEGER) {
+            free(table);
+            free_columns_partial(cols, ncols);
+            return -1;
+        }
+        char *tmp = dup_slice(inttok.text, inttok.text_len);
+        if (!tmp) {
+            free(table);
+            free_columns_partial(cols, ncols);
+            return -1;
+        }
+        where_id = (int64_t)strtoll(tmp, NULL, 10);
+        free(tmp);
+        has_where = 1;
+        if (lexer_next(lex, &t) != 0) {
+            free(table);
+            free_columns_partial(cols, ncols);
+            return -1;
+        }
+        if (t.kind != TOKEN_SEMICOLON && t.kind != TOKEN_EOF) {
+            free(table);
+            free_columns_partial(cols, ncols);
+            return -1;
+        }
+    } else {
         free(table);
         free_columns_partial(cols, ncols);
         return -1;
@@ -308,6 +362,8 @@ int parser_parse_select(Lexer *lex, SelectStmt **out) {
         free_columns_partial(cols, ncols);
         return -1;
     }
+    st->has_where_id_eq = has_where;
+    st->where_id_value = where_id;
     st->select_all = select_all;
     st->column_count = select_all ? 0 : ncols;
     if (select_all) {

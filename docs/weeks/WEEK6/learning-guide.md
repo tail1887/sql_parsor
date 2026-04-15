@@ -1,7 +1,6 @@
-# 05. 단계별 학습 가이드
+# 학습 가이드 (WEEK6)
 
-이 문서는 **MVP 규격이 아닙니다.** 동작·문법의 기준은 `docs/01`~`04`와 `AGENTS.md`입니다.  
-아래는 **구현 순서에 맞춰**, 각 단계에서 무엇을 짚고 공부하면 좋은지 정리한 것입니다.
+이 문서는 **MVP 규격이 아닙니다.** 동작·문법의 기준은 `docs/01`~`04`와` AGENTS.md`입니다.   아래는 **구현 순서에 맞춰**, 각 단계에서 무엇을 짚고 공부하면 좋은지 정리한 것입니다.   주차 과제 한 줄 요약은` [assignment.md](assignment.md)`를 본다.
 
 ---
 
@@ -9,12 +8,14 @@
 
 구현에 들어가기 전에 한 번 읽고 가면 단계별 공부가 연결됩니다.
 
-| 순서 | 문서 | 짚을 포인트 |
-| --- | --- | --- |
-| 1 | [`01-product-planning.md`](01-product-planning.md) | INSERT/SELECT만, CREATE 없음, CSV 사전 존재 등 **범위 한계** |
-| 2 | [`02-architecture.md`](02-architecture.md) | Lexer → Parser → AST → Executor → Storage **한 줄 파이프라인** |
-| 3 | [`03-api-reference.md`](03-api-reference.md) | 토큰·문법·종료 코드·stdout/stderr — **나중에 구현할 때 계속 대조** |
-| 4 | [`04-development-guide.md`](04-development-guide.md) | 브랜치 쪼개기, 테스트 종류 |
+
+| 순서  | 문서                                                         | 짚을 포인트                                                  |
+| --- | ---------------------------------------------------------- | ------------------------------------------------------- |
+| 1   | `[01-product-planning.md](../../01-product-planning.md)`   | INSERT/SELECT만, CREATE 없음, CSV 사전 존재 등 **범위 한계**        |
+| 2   | `[02-architecture.md](../../02-architecture.md)`           | Lexer → Parser → AST → Executor → Storage **한 줄 파이프라인** |
+| 3   | `[03-api-reference.md](../../03-api-reference.md)`         | 토큰·문법·종료 코드·stdout/stderr — **나중에 구현할 때 계속 대조**         |
+| 4   | `[04-development-guide.md](../../04-development-guide.md)` | 브랜치 쪼개기, 테스트 종류                                         |
+
 
 이후 단계 번호는 `AGENTS.md`의 **Codex-First Development Order**와 맞춥니다.
 
@@ -45,7 +46,7 @@
 - **왜 문자 단위가 아니라 토큰인가**: 파서가 다루는 최소 단위를 lexer에서 확정한다는 뜻.
 - **최장 일치(longest match)**: `INSERT`를 한 토큰으로 볼지, 식별자와 어떻게 구분할지.
 - **키워드 case-insensitive** 정책을 lexer에서 어떻게 반영할지(정규화 시점).
-- 문자열 리터럴은 MVP에서 **작은따옴표** (`'...'`, 내부 **`''`** → `'` 한 글자). 닫는 `'` 판별·미종료 처리 — 여기서 틀리면 파서까지 오류가 전파된다. (CSV 직렬화의 큰따옴표 `""` 규칙은 `csv_storage` 단계 이야기이며 SQL 리터럴과 다름.)
+- 문자열 리터럴은 MVP에서 **작은따옴표** (`'...'`, 내부 `**''`** → `'` 한 글자). 닫는 `'` 판별·미종료 처리 — 여기서 틀리면 파서까지 오류가 전파된다. (CSV 직렬화의 큰따옴표 `""` 규칙은 `csv_storage` 단계 이야기이며 SQL 리터럴과 다름.)
 - 공백·줄바꿈·(있다면) 주석 — **토큰으로보내지 않고 스킵**하는 규칙을 한곳에 모을 것.
 
 **스스로 점검**
@@ -181,14 +182,16 @@
 
 ## 한눈에: 단계 ↔ 이 레포 문서
 
-| 단계 | 구현 초점 | 자주 대조할 문서 |
-| --- | --- | --- |
-| 1 | CMake, `main` 골격 | `02-architecture.md` §레이어 |
-| 2 | Lexer | `03-api-reference.md` §토큰·식별자 |
-| 3~4 | Parser, AST | `03-api-reference.md` §SQL 문법 |
-| 5 | csv_storage | `02-architecture.md` §CSV, `03-api-reference.md` |
-| 6 | Executor | `02-architecture.md` §시퀀스, `03-api-reference.md` §출력 |
-| 7 | CLI | `03-api-reference.md` §CLI·종료 코드 |
-| 8~10 | 견고함·테스트·README | `01`~`04`, `AGENTS.md` |
+
+| 단계   | 구현 초점            | 자주 대조할 문서                                            |
+| ---- | ---------------- | ---------------------------------------------------- |
+| 1    | CMake, `main` 골격 | `02-architecture.md` §레이어                            |
+| 2    | Lexer            | `03-api-reference.md` §토큰·식별자                        |
+| 3~4  | Parser, AST      | `03-api-reference.md` §SQL 문법                        |
+| 5    | csv_storage      | `02-architecture.md` §CSV, `03-api-reference.md`     |
+| 6    | Executor         | `02-architecture.md` §시퀀스, `03-api-reference.md` §출력 |
+| 7    | CLI              | `03-api-reference.md` §CLI·종료 코드                     |
+| 8~10 | 견고함·테스트·README   | `01`~`04`,` AGENTS.md`                               |
+
 
 외부 교재(예: Crafting Interpreters, CMake 튜토리얼)는 **해당 단계에 들어간 뒤** 막힐 때 곁들이면 효율적입니다. 링크 모음이 필요하면 팀에서 별도 노트에 적어도 됩니다.

@@ -1,7 +1,7 @@
 # 04. Development Guide
 
 구현 단계 진입 시 본 문서와 `AGENTS.md` 를 함께 따른다.  
-단계별로 무엇을 공부할지는 [`05-learning-resources.md`](05-learning-resources.md) (스펙 아님).
+단계별로 무엇을 공부할지는 `[weeks/WEEK6/learning-guide.md](weeks/WEEK6/learning-guide.md)` (스펙 아님).
 
 ## 1) 브랜치 전략
 
@@ -88,18 +88,18 @@ SQL 처리기에 맞춘 예시 브랜치 분리:
 
 최소 체크리스트:
 
-- [ ] INSERT 후 파일 끝에 행이 추가되는지
-- [ ] SELECT 가 헤더·행을 기대와 일치하게 출력하는지
-- [ ] 구문 오류 시 비제로 exit code
-- [ ] 테이블 파일 없음 / 컬럼 수 불일치
-- [ ] 문서(`docs/03-api-reference.md`)와 출력·exit code 동기화
+- INSERT 후 파일 끝에 행이 추가되는지
+- SELECT 가 헤더·행을 기대와 일치하게 출력하는지
+- 구문 오류 시 비제로 exit code
+- 테이블 파일 없음 / 컬럼 수 불일치
+- 문서(`docs/03-api-reference.md`)와 출력·exit code 동기화
 
 ## 6) PR 체크리스트
 
-- [ ] 변경 목적이 명확하다
-- [ ] 테스트를 추가했거나 기존 테스트가 통과한다
-- [ ] parser 동작·CLI·저장 포맷이 바뀌면 `docs/03-api-reference.md` 또는 `docs/02-architecture.md` 를 갱신했다
-- [ ] 리뷰어가 이해할 수 있게 범위를 설명했다
+- 변경 목적이 명확하다
+- 테스트를 추가했거나 기존 테스트가 통과한다
+- parser 동작·CLI·저장 포맷이 바뀌면 `docs/03-api-reference.md` 또는 `docs/02-architecture.md` 를 갱신했다
+- 리뷰어가 이해할 수 있게 범위를 설명했다
 
 ## 7) 마일스톤 예시
 

@@ -14,7 +14,11 @@ Source of truth order:
 
 If documents conflict, follow the order above.
 
-**Supplementary (not specification):** `docs/05-learning-resources.md` — 구현 단계별로 짚을 내용·공부 포인트·자기 점검 질문.
+**Supplementary (not specification):** 주차별 자료는 `docs/weeks/` 아래에 둔다.
+
+- `docs/weeks/WEEK6/assignment.md` — SQL 처리기 주차 과제 명세(지난 수요 코딩회 정리).
+- `docs/weeks/WEEK6/learning-guide.md` — 위 주차 단계별 학습·자기 점검 (스펙 아님).
+- `docs/weeks/WEEK7/assignment.md`, `docs/weeks/WEEK7/learning-guide.md` — B+ 트리 연계 과제·학습 틀 (스펙 아님).
 
 ## How Codex Should Work In This Repo
 

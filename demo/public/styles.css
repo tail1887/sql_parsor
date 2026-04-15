@@ -4,6 +4,134 @@ body {
   margin: 0;
 }
 
+.topnav {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  flex-wrap: wrap;
+  padding: 12px 20px;
+  background: #1a2332;
+  color: #e6edf3;
+  border-bottom: 1px solid #0d1117;
+}
+
+.topnav .brand {
+  color: #e6edf3;
+  font-weight: 700;
+  text-decoration: none;
+  letter-spacing: 0.02em;
+}
+
+.topnav .brand:hover {
+  text-decoration: underline;
+}
+
+.nav-links {
+  display: flex;
+  gap: 6px;
+  flex-wrap: wrap;
+}
+
+.nav-links a {
+  color: #b8c0cc;
+  text-decoration: none;
+  padding: 8px 14px;
+  border-radius: 6px;
+  font-size: 14px;
+}
+
+.nav-links a:hover {
+  color: #fff;
+  background: rgba(255, 255, 255, 0.08);
+}
+
+.nav-links a.is-active {
+  color: #0d1117;
+  background: #58a6ff;
+  font-weight: 600;
+}
+
+.wrap.home {
+  margin-top: 20px;
+}
+
+.hero .lead {
+  font-size: 1.05rem;
+  line-height: 1.55;
+  max-width: 720px;
+}
+
+.hero code {
+  background: #eaeef3;
+  padding: 2px 6px;
+  border-radius: 4px;
+  font-size: 0.92em;
+}
+
+.tiles {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+  gap: 14px;
+  margin-top: 12px;
+}
+
+.tile {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding: 16px;
+  border: 1px solid #c9d4e6;
+  border-radius: 10px;
+  background: linear-gradient(180deg, #fbfdff 0%, #f0f4fa 100%);
+  text-decoration: none;
+  color: inherit;
+  transition: border-color 0.15s, box-shadow 0.15s;
+}
+
+.tile:hover {
+  border-color: #58a6ff;
+  box-shadow: 0 4px 14px rgba(88, 166, 255, 0.2);
+}
+
+.tile-label {
+  font-size: 12px;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: #57606a;
+}
+
+.tile .small {
+  font-size: 13px;
+}
+
+.steps-list {
+  line-height: 1.7;
+  margin: 0;
+  padding-left: 1.25rem;
+}
+
+.steps-list code {
+  background: #eaeef3;
+  padding: 2px 6px;
+  border-radius: 4px;
+}
+
+.card.callout {
+  border-color: #b6d4fe;
+  background: #f0f7ff;
+}
+
+.card.callout ul {
+  margin: 8px 0 0;
+  padding-left: 1.2rem;
+  line-height: 1.65;
+}
+
+.card.callout li {
+  margin-bottom: 6px;
+}
+
 .wrap {
   max-width: 1100px;
   margin: 24px auto;
@@ -12,6 +140,15 @@ body {
 
 .muted {
   color: #666;
+}
+
+.muted.small {
+  font-size: 13px;
+  line-height: 1.5;
+}
+
+.muted.small a {
+  color: #0969da;
 }
 
 .card {
@@ -68,4 +205,124 @@ pre {
   display: grid;
   grid-template-columns: 1fr 1fr;
   gap: 12px;
+}
+
+/* Week 6 vs Week 7 랜딩 구분 */
+.week6-pipeline {
+  border-top: 4px solid #1a7f37;
+  padding-top: 8px;
+}
+
+.week7-lab.wrap {
+  border-top: 4px solid #8250df;
+  padding-top: 8px;
+}
+
+.week7-lab .lab-header {
+  margin-bottom: 16px;
+  padding: 14px 16px;
+  border-radius: 10px;
+  background: linear-gradient(110deg, #f6f0ff 0%, #eef8ff 100%);
+  border: 1px solid #d8b9ff;
+}
+
+p.lab-load-error {
+  color: #a40e26;
+  line-height: 1.55;
+  margin: 0;
+}
+
+.lab-grid {
+  display: grid;
+  grid-template-columns: minmax(160px, 220px) 1fr;
+  gap: 16px;
+  align-items: start;
+}
+
+@media (max-width: 800px) {
+  .lab-grid {
+    grid-template-columns: 1fr;
+  }
+}
+
+.step-nav {
+  position: sticky;
+  top: 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding: 14px;
+}
+
+.step-nav-btn {
+  text-align: left;
+  padding: 10px 12px;
+  border: 1px solid #c9d4e6;
+  border-radius: 8px;
+  background: #f8fafc;
+  cursor: pointer;
+  font-size: 14px;
+}
+
+.step-nav-btn:hover {
+  border-color: #58a6ff;
+  background: #eef6ff;
+}
+
+.step-nav-btn.is-active {
+  border-color: #0969da;
+  background: #ddf4ff;
+  font-weight: 600;
+}
+
+.step-detail h2 {
+  margin-top: 0;
+}
+
+.step-detail h3 {
+  font-size: 15px;
+  margin: 14px 0 6px;
+}
+
+.offline-box {
+  margin-top: 14px;
+  padding: 12px;
+  border-radius: 8px;
+  border: 1px dashed #8c959f;
+  background: #f6f8fa;
+}
+
+.cmd-list {
+  margin: 8px 0 0;
+  padding-left: 1.2rem;
+  line-height: 1.8;
+}
+
+.cmd-list code {
+  font-size: 12px;
+}
+
+.preset-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin: 8px 0 10px;
+}
+
+.preset-btn {
+  font-size: 13px;
+  padding: 8px 12px;
+  border-radius: 6px;
+  border: 1px solid #d0d7de;
+  background: #fff;
+  cursor: pointer;
+}
+
+.preset-btn:hover {
+  border-color: #0969da;
+  color: #0969da;
+}
+
+.lab-run.is-offline textarea {
+  opacity: 0.85;
 }

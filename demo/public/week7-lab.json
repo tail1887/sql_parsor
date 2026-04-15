@@ -1,0 +1,163 @@
+{
+  "docHint": "docs/weeks/WEEK7/learning-guide.md",
+  "steps": [
+    {
+      "id": 1,
+      "title": "단계 1 — B+ 트리 단독 모듈",
+      "summary": "SQL·CSV 없이 `bplus_insert` / `bplus_search` 만 검증합니다. 브라우저 데모는 바이너리를 직접 부르지 않으므로 터미널에서 CTest로 확인합니다.",
+      "studyPoints": [
+        "차수·split 후에도 키 순서가 유지되는지",
+        "`bplus_insert_or_replace`로 동일 키 시 payload(행 번호)만 갱신되는지"
+      ],
+      "selfCheck": [
+        "`ctest --test-dir <빌드폴더> -R bplus_tree_unit --output-on-failure` 가 통과하는가?",
+        "빈 트리·한 키·연속 split·miss/hit 시나리오를 테스트가 커버하는가?"
+      ],
+      "offline": true,
+      "terminalCommands": [
+        "cmake --build build-ninja --target test_bplus_tree",
+        "ctest --test-dir build-ninja -R bplus_tree_unit --output-on-failure"
+      ],
+      "sqlPresets": []
+    },
+    {
+      "id": 2,
+      "title": "단계 2 — 자동 `id` + row_ref",
+      "summary": "첫 컬럼이 `id`인 테이블에서 INSERT 시 첫 값은 무시되고 `next_id`가 들어갑니다. append 직후 행 인덱스가 확정되는 흐름을 CSV diff로 확인합니다.",
+      "studyPoints": [
+        "`csv_storage_data_row_count` 등으로 마지막 데이터 행 인덱스를 쓰는 이유(단일 프로세스)",
+        "`week7_ensure_loaded`로 재실행 시 최대 id·트리를 맞추는 이유"
+      ],
+      "selfCheck": [
+        "INSERT 후 `users.csv` 첫 필드( id )가 기대한 정수인가?",
+        "stdout에 붙은 새 행의 id와 파일 마지막 줄이 같은가?"
+      ],
+      "offline": false,
+      "terminalCommands": [],
+      "sqlPresets": [
+        {
+          "label": "VALUES에서 id 생략 (name, email만)",
+          "sql": "INSERT INTO users VALUES ('lab_step2', 'step2@example.com');\nSELECT * FROM users;\n"
+        },
+        {
+          "label": "전체 스캔으로 마지막에 붙은 행 확인",
+          "sql": "SELECT id, name, email FROM users;\n"
+        }
+      ]
+    },
+    {
+      "id": 3,
+      "title": "단계 3 — INSERT 경로에 인덱스 연결",
+      "summary": "append 성공 → `row_ref` 확정 → `week7_on_append_success` 순서가 깨지면 파일과 트리가 어긋납니다. INSERT 직후 `WHERE id = 같은 번호`로 같은 행이 나오는지 확인합니다.",
+      "studyPoints": [
+        "인덱스 삽입 실패 시 롤백 미구현이면 문서(`sequences.md`)와 맞는지"
+      ],
+      "selfCheck": [
+        "아래 INSERT 실행 후 stdout의 새 `id`를 확인하고, 두 번째 프리셋에서 그 숫자로 바꿔 실행했을 때 한 행이 나오는가?"
+      ],
+      "offline": false,
+      "terminalCommands": [],
+      "sqlPresets": [
+        {
+          "label": "① INSERT 후 전체 SELECT (맨 아래 새 id 확인)",
+          "sql": "INSERT INTO users VALUES ('lab_step3', 'step3@example.com');\nSELECT * FROM users;\n"
+        },
+        {
+          "label": "② WHERE id = … (①에서 본 id로 숫자만 바꿔 실행)",
+          "sql": "SELECT * FROM users WHERE id = 5;\n"
+        }
+      ]
+    },
+    {
+      "id": 4,
+      "title": "단계 4 — 파서·AST: `WHERE id = 정수`",
+      "summary": "허용 패턴은 `WHERE id = <정수>` 뿐입니다. 그 외는 파싱 단계에서 막습니다.",
+      "studyPoints": [
+        "WHERE를 파서에서 좁게 두면 실행기까지 안 내려가 디버깅이 쉬움",
+        "AST에 `has_where_id_eq` / `where_id_value`가 실리는지 JSON에서 확인"
+      ],
+      "selfCheck": [
+        "성공 예: exit 0, AST에 where 조건이 보이는가?",
+        "실패 예: exit 2 전후, 파싱 오류 메시지가 stderr에 나오는가?"
+      ],
+      "offline": false,
+      "terminalCommands": [],
+      "sqlPresets": [
+        {
+          "label": "성공: WHERE id = 정수",
+          "sql": "SELECT id, name FROM users WHERE id = 1;\n"
+        },
+        {
+          "label": "실패: WHERE id > 1 (미지원 연산자)",
+          "sql": "SELECT * FROM users WHERE id > 1;\n"
+        },
+        {
+          "label": "실패: WHERE email = … (다른 컬럼)",
+          "sql": "SELECT * FROM users WHERE email = 'alice@example.com';\n"
+        }
+      ]
+    },
+    {
+      "id": 5,
+      "title": "단계 5 — SELECT 실행 분기",
+      "summary": "`has_where_id_eq`이면 인덱스 룩업 후 한 행만, 아니면 `read_table` 풀스캔입니다. 동일 데이터에 대해 두 경로의 **해당 행 내용**이 같아야 합니다.",
+      "studyPoints": [
+        "인덱스 경로도 내부적으로 전체 read_table일 수 있음 — I/O는 문서·README와 맞춰 설명"
+      ],
+      "selfCheck": [
+        "같은 `id`에 대해 `SELECT *` 한 줄과 `WHERE id = k` 한 줄의 TSV 데이터 부분이 동일한가?"
+      ],
+      "offline": false,
+      "terminalCommands": [],
+      "sqlPresets": [
+        {
+          "label": "풀스캔 (WHERE 없음)",
+          "sql": "SELECT id, name, email FROM users;\n"
+        },
+        {
+          "label": "인덱스 경로 (WHERE id = 존재하는 행)",
+          "sql": "SELECT id, name, email FROM users WHERE id = 5;\n"
+        }
+      ]
+    },
+    {
+      "id": 6,
+      "title": "단계 6 — 엣지·에러",
+      "summary": "없는 id → 헤더만(성공 0). 파싱 실패 → 비제로 exit. 정본은 `docs/03-api-reference.md` WEEK7 절입니다.",
+      "studyPoints": ["miss vs 실행 오류(비 PK 테이블의 WHERE id) 구분"],
+      "selfCheck": [
+        "`WHERE id = 999999` 실행 시 헤더만 나오고 exit code 0 인가?",
+        "앞 단계의 파싱 실패 쿼리에서 exit code가 문서와 일치하는가?"
+      ],
+      "offline": false,
+      "terminalCommands": [],
+      "sqlPresets": [
+        {
+          "label": "miss: 없는 id",
+          "sql": "SELECT * FROM users WHERE id = 999999;\n"
+        },
+        {
+          "label": "파싱 실패 (다시 확인)",
+          "sql": "SELECT * FROM users WHERE id > 1;\n"
+        }
+      ]
+    },
+    {
+      "id": 7,
+      "title": "단계 7 — 대량 벤치 + README",
+      "summary": "`bench_bplus`는 CTest에 넣지 않은 별도 타깃입니다. CPU에서 인덱스 룩업 vs 선형 스캔만 격리하려면 `compare` 모드를 씁니다.",
+      "studyPoints": ["SQL 1M 경로는 I/O·파싱 비용이 커서 벤치와 분리해 설명"],
+      "selfCheck": [
+        "`bench_bplus compare 1000000 10000` 출력이 나오는가?",
+        "README 표의 재현 명령을 팀 환경에서 한 번 돌려볼 수 있는가?"
+      ],
+      "offline": true,
+      "terminalCommands": [
+        "cmake --build build-ninja --target bench_bplus",
+        ".\\build-ninja\\bench_bplus.exe compare 1000000 10000",
+        "./build-ninja/bench_bplus compare 1000000 10000"
+      ],
+      "sqlPresets": []
+    }
+  ]
+}

@@ -56,6 +56,13 @@ static int keyword_kind(const char *s, size_t n, TokenKind *out) {
             return 1;
         }
     }
+    if (n == 5) {
+        if (to_lower_c(s[0]) == 'w' && to_lower_c(s[1]) == 'h' && to_lower_c(s[2]) == 'e' &&
+            to_lower_c(s[3]) == 'r' && to_lower_c(s[4]) == 'e') {
+            *out = TOKEN_WHERE;
+            return 1;
+        }
+    }
     if (n == 4) {
         //INTO 키워드 검사
         if (to_lower_c(s[0]) == 'i' && to_lower_c(s[1]) == 'n' && to_lower_c(s[2]) == 't' &&
@@ -299,6 +306,9 @@ int lexer_next(Lexer *lex, Token *tok) {
         break;
     case '*':
         tok->kind = TOKEN_STAR;
+        break;
+    case '=':
+        tok->kind = TOKEN_EQ;
         break;
     default:
         tok->kind = TOKEN_ERROR;
