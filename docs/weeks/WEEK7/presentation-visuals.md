@@ -1,31 +1,21 @@
-# WEEK7 시각 자료 — B+ 트리·인덱스 다이어그램
-
-[`presentation-script.md`](presentation-script.md) **§2.4**와 [`presentation-script-full.md`](presentation-script-full.md)에도 아래와 **동일한 다이어그램**이 들어 있다. 발표 슬라이드·발표자 모니터에는 **이 파일만** 띄워도 된다.
+# WEEK7 Team 3 — 자동 ID + B+ 인덱스 / 대규모 성능 비교
 
 ---
 
-## 발표 보조 요약
-
 ### 1) 구현 시퀀스
 
-```text
-B+ 트리 단독 모듈
-→ 자동 id + 행 참조(row_ref)
-→ INSERT 경로에 인덱스 연결
-→ 파서·AST: WHERE id = 정수
-→ SELECT 실행 분기
-→ 엣지·에러
-→ 대량 벤치 + README
-```
+```mermaid
+flowchart LR
+    A["B+ 트리<br/>단독 모듈"]
+    B["자동 id<br/>+ row_ref"]
+    C["INSERT 경로<br/>인덱스 연결"]
+    D["Parser·AST<br/>WHERE id = 정수"]
+    E["SELECT<br/>실행 분기"]
+    F["엣지·에러"]
+    G["대량 벤치<br/>+ README"]
 
-| 단계 | 핵심 내용 |
-|---|---|
-| B+ 트리 단독 모듈 | SQL·CSV와 분리해 `insert`, `search`, `insert_or_replace` 검증 |
-| 자동 id + row_ref | 첫 컬럼이 `id`이면 자동 id 부여, CSV 데이터 행 번호를 `row_ref`로 사용 |
-| INSERT 연결 | CSV append 성공 후 `id -> row_index`를 B+ 트리에 등록 |
-| WHERE 파싱 | `WHERE id = 정수`를 AST에 `has_where_id_eq`, `where_id_value`로 저장 |
-| SELECT 분기 | `WHERE id`는 인덱스 lookup, 일반 SELECT는 기존 풀스캔 |
-| 벤치 | 1,000,000건 기준 B+ lookup과 선형 탐색 비교 |
+    A --> B --> C --> D --> E --> F --> G
+```
 
 ### 2) `malloc/calloc` vs `mmap`
 
@@ -319,3 +309,13 @@ flowchart LR
 
 - SQL·CSV I/O 없이 **CPU에서만** “로그 높이 vs O(n) 스캔” 차이를 본다.
 
+---
+
+## 협업 방식
+
+| 구간 | 방식 |
+|---|---|
+| 초반 | B+ 트리 핵심 코드 중심으로 line-by-line 분석 |
+| 전환점 | 전체 코드를 모두 뜯는 방식은 시간이 커서 회의 후 범위 조정 |
+| 이후 | 구현 시퀀스를 기준으로 전체 흐름과 연결 지점 파악 |
+| 효과 | B+ 트리 원리를 먼저 잡고 INSERT·Parser·SELECT·Bench 흐름을 연결 |
