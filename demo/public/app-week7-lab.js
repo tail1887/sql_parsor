@@ -26,6 +26,8 @@ const benchNInput = document.getElementById("benchNInput");
 const benchKInput = document.getElementById("benchKInput");
 const benchBuildBtn = document.getElementById("benchBuildBtn");
 const benchRunBtn = document.getElementById("benchRunBtn");
+const benchRunWideBtn = document.getElementById("benchRunWideBtn");
+const benchRunBothBtn = document.getElementById("benchRunBothBtn");
 const benchCmdView = document.getElementById("benchCmdView");
 const benchOutput = document.getElementById("benchOutput");
 const benchSummary = document.getElementById("benchSummary");
@@ -127,6 +129,33 @@ function renderBenchSummary(stdout) {
   ].join("\n");
 }
 
+function compareSummaries(baseStdout, wideStdout) {
+  const base = parseBenchNumbers(baseStdout || "");
+  const wide = parseBenchNumbers(wideStdout || "");
+  if (base.indexSec == null || wide.indexSec == null) {
+    return "비교 요약 생성 실패: 두 출력에서 index_lookup_sec를 찾지 못했습니다.";
+  }
+  const baseVsWideIndex = wide.indexSec > 0 ? base.indexSec / wide.indexSec : null;
+  const baseVsWideLinear = (base.linearSec != null && wide.linearSec != null && wide.linearSec > 0)
+    ? base.linearSec / wide.linearSec
+    : null;
+  return [
+    "[기본 BP_MAX_KEYS=3]",
+    renderBenchSummary(baseStdout),
+    "",
+    "[확장 BP_MAX_KEYS=31]",
+    renderBenchSummary(wideStdout),
+    "",
+    "[기본 vs 확장]",
+    baseVsWideIndex == null
+      ? "index_lookup 비교 불가"
+      : `index_lookup 기준 확장/기본 개선: ${baseVsWideIndex.toFixed(2)}x (값이 클수록 확장이 빠름)`,
+    baseVsWideLinear == null
+      ? "linear_scan 비교 불가"
+      : `linear_scan 기준 확장/기본 개선: ${baseVsWideLinear.toFixed(2)}x`
+  ].join("\n");
+}
+
 function initFlowPresets() {
   flowPresetRow.innerHTML = "";
   for (const p of FLOW_PRESETS) {
@@ -169,7 +198,7 @@ flowRunBtn.addEventListener("click", async () => {
 });
 
 benchBuildBtn.addEventListener("click", async () => {
-  const cmd = "cmake --build build-ninja --target bench_bplus";
+  const cmd = "cmake --build build-ninja --target bench_bplus bench_bplus_wide";
   benchCmdView.textContent = cmd;
   benchOutput.textContent = "실행 중...";
   benchSummary.textContent = "";
@@ -186,7 +215,7 @@ benchBuildBtn.addEventListener("click", async () => {
       result.stderr || "(empty)"
     ].join("\n");
     benchSummary.textContent = result.exitCode === 0
-      ? "bench_bplus 빌드 성공. 이제 compare 실행 버튼을 누르세요."
+      ? "bench_bplus / bench_bplus_wide 빌드 성공. 이제 compare 실행 버튼으로 결과를 비교하세요."
       : "빌드 실패. stderr를 먼저 확인하세요.";
   } catch (e) {
     benchOutput.textContent = `실행 실패: ${String(e.message || e)}`;
@@ -195,27 +224,33 @@ benchBuildBtn.addEventListener("click", async () => {
   }
 });
 
-benchRunBtn.addEventListener("click", async () => {
+async function runBench(binaryName) {
   const n = Number(benchNInput.value || 1000000);
   const k = Number(benchKInput.value || 10000);
   if (!Number.isFinite(n) || n < 1000000) {
     benchSummary.textContent = "n은 최소 1,000,000 이상이어야 합니다.";
-    return;
+    return null;
   }
   if (!Number.isFinite(k) || k < 1) {
     benchSummary.textContent = "k는 1 이상의 정수여야 합니다.";
-    return;
+    return null;
   }
 
-  const cmd = `.\\build-ninja\\bench_bplus.exe compare ${Math.floor(n)} ${Math.floor(k)}`;
+  const cmd = `.\\build-ninja\\${binaryName}.exe compare ${Math.floor(n)} ${Math.floor(k)}`;
   benchCmdView.textContent = cmd;
+  return { cmd, n: Math.floor(n), k: Math.floor(k) };
+}
+
+benchRunBtn.addEventListener("click", async () => {
+  const p = await runBench("bench_bplus");
+  if (!p) return;
   benchOutput.textContent = "실행 중...";
   benchSummary.textContent = "";
   benchRunBtn.disabled = true;
   try {
-    const result = await runCommand(cmd);
+    const result = await runCommand(p.cmd);
     benchOutput.textContent = [
-      `exit code: ${result.exitCode}`,
+      `[bench_bplus] exit code: ${result.exitCode}`,
       "",
       "[stdout]",
       result.stdout || "(empty)",
@@ -230,6 +265,69 @@ benchRunBtn.addEventListener("click", async () => {
     benchOutput.textContent = `실행 실패: ${String(e.message || e)}`;
   } finally {
     benchRunBtn.disabled = false;
+  }
+});
+
+benchRunWideBtn.addEventListener("click", async () => {
+  const p = await runBench("bench_bplus_wide");
+  if (!p) return;
+  benchOutput.textContent = "실행 중...";
+  benchSummary.textContent = "";
+  benchRunWideBtn.disabled = true;
+  try {
+    const result = await runCommand(p.cmd);
+    benchOutput.textContent = [
+      `[bench_bplus_wide] exit code: ${result.exitCode}`,
+      "",
+      "[stdout]",
+      result.stdout || "(empty)",
+      "",
+      "[stderr]",
+      result.stderr || "(empty)"
+    ].join("\n");
+    benchSummary.textContent = result.exitCode === 0
+      ? renderBenchSummary(result.stdout || "")
+      : "bench 실행 실패. stderr를 확인하세요.";
+  } catch (e) {
+    benchOutput.textContent = `실행 실패: ${String(e.message || e)}`;
+  } finally {
+    benchRunWideBtn.disabled = false;
+  }
+});
+
+benchRunBothBtn.addEventListener("click", async () => {
+  const base = await runBench("bench_bplus");
+  if (!base) return;
+  const wideCmd = `.\\build-ninja\\bench_bplus_wide.exe compare ${base.n} ${base.k}`;
+  benchCmdView.textContent = [base.cmd, wideCmd].join("\n");
+  benchOutput.textContent = "두 버전 순차 실행 중...";
+  benchSummary.textContent = "";
+  benchRunBothBtn.disabled = true;
+  try {
+    const baseResult = await runCommand(base.cmd);
+    const wideResult = await runCommand(wideCmd);
+    benchOutput.textContent = [
+      `[bench_bplus] exit code: ${baseResult.exitCode}`,
+      baseResult.stdout || "(empty)",
+      "",
+      `[bench_bplus_wide] exit code: ${wideResult.exitCode}`,
+      wideResult.stdout || "(empty)",
+      "",
+      "[stderr(base)]",
+      baseResult.stderr || "(empty)",
+      "",
+      "[stderr(wide)]",
+      wideResult.stderr || "(empty)"
+    ].join("\n");
+    if (baseResult.exitCode === 0 && wideResult.exitCode === 0) {
+      benchSummary.textContent = compareSummaries(baseResult.stdout || "", wideResult.stdout || "");
+    } else {
+      benchSummary.textContent = "둘 중 하나 이상 실행 실패. 출력/에러를 확인하세요.";
+    }
+  } catch (e) {
+    benchOutput.textContent = `실행 실패: ${String(e.message || e)}`;
+  } finally {
+    benchRunBothBtn.disabled = false;
   }
 });
 

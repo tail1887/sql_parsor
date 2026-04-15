@@ -79,6 +79,11 @@ target_include_directories(test_bplus_tree PRIVATE "${CMAKE_CURRENT_SOURCE_DIR}/
 add_executable(bench_bplus src/bench_bplus.c src/week7/bplus_tree.c)
 target_include_directories(bench_bplus PRIVATE "${CMAKE_CURRENT_SOURCE_DIR}/include")
 
+# WEEK7: 노드 fanout 확대한 비교용 벤치(BP_MAX_KEYS=31)
+add_executable(bench_bplus_wide src/bench_bplus.c src/week7/bplus_tree.c)
+target_include_directories(bench_bplus_wide PRIVATE "${CMAKE_CURRENT_SOURCE_DIR}/include")
+target_compile_definitions(bench_bplus_wide PRIVATE BP_MAX_KEYS=31)
+
 # ------------------------------------------------------------------------------
 # 3. 테스트 자동화 (CTest)
 #

@@ -3,7 +3,9 @@
 
 #include <stdlib.h> /* calloc, malloc, free */
 
-#define BP_MAX_KEYS 3                        /* 노드당 키 상한(과제 차수) */
+#ifndef BP_MAX_KEYS
+#define BP_MAX_KEYS 3                        /* 노드당 키 상한(과제 차수, 기본값) */
+#endif
 #define BP_MAX_CHILDREN (BP_MAX_KEYS + 1)  /* 내부 노드 자식 상한 = 키 개수 + 1 */
 
 typedef struct BPNode {
