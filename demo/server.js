@@ -122,6 +122,12 @@ function loadWeek7Lab() {
 }
 
 const WEEK7_LAB = loadWeek7Lab();
+const SAFE_COMMAND_PREFIXES = [
+  "cmake --build ",
+  "ctest --test-dir ",
+  ".\\build-ninja\\",
+  "./build-ninja/"
+];
 
 app.get("/api/week7-lab", (req, res) => {
   return res.json(WEEK7_LAB);
@@ -170,6 +176,27 @@ app.post("/api/run", (req, res) => {
     traceEvents: events,
     csvBefore: before,
     csvAfter: after
+  });
+});
+
+app.post("/api/run-command", (req, res) => {
+  const command = typeof req.body?.command === "string" ? req.body.command.trim() : "";
+  if (!command) {
+    return res.status(400).json({ error: "command is required" });
+  }
+  const allowed = SAFE_COMMAND_PREFIXES.some((p) => command.startsWith(p));
+  if (!allowed) {
+    return res.status(400).json({ error: "command not allowed in demo" });
+  }
+  const result = spawnSync(command, {
+    cwd: repoRoot,
+    encoding: "utf8",
+    shell: true
+  });
+  return res.json({
+    exitCode: typeof result.status === "number" ? result.status : 1,
+    stdout: result.stdout || "",
+    stderr: result.stderr || ""
   });
 });
 

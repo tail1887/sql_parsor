@@ -14,6 +14,10 @@
         "빈 트리·한 키·연속 split·miss/hit 시나리오를 테스트가 커버하는가?"
       ],
       "offline": true,
+      "focusPanels": ["result"],
+      "hidePanels": ["tokens", "ast", "executor"],
+      "verifyHint": "1단계는 브라우저 SQL보다 터미널 테스트가 핵심입니다.",
+      "expectedChecks": [],
       "terminalCommands": [
         "cmake --build build-ninja --target test_bplus_tree",
         "ctest --test-dir build-ninja -R bplus_tree_unit --output-on-failure"
@@ -33,6 +37,14 @@
         "stdout에 붙은 새 행의 id와 파일 마지막 줄이 같은가?"
       ],
       "offline": false,
+      "focusPanels": ["executor", "result"],
+      "hidePanels": [],
+      "verifyHint": "자동 id 부여와 CSV diff 변화가 핵심입니다.",
+      "expectedChecks": [
+        { "type": "exitCodeEquals", "value": 0, "label": "정상 실행(exit code 0)" },
+        { "type": "csvChanged", "value": true, "label": "users.csv 변경 발생" },
+        { "type": "traceHasStep", "value": "executor_call", "label": "executor 호출 이벤트 존재" }
+      ],
       "terminalCommands": [],
       "sqlPresets": [
         {
@@ -56,6 +68,13 @@
         "아래 INSERT 실행 후 stdout의 새 `id`를 확인하고, 두 번째 프리셋에서 그 숫자로 바꿔 실행했을 때 한 행이 나오는가?"
       ],
       "offline": false,
+      "focusPanels": ["executor", "result"],
+      "hidePanels": [],
+      "verifyHint": "append 이후 인덱스 반영 순서를 stdout/csv diff로 확인하세요.",
+      "expectedChecks": [
+        { "type": "exitCodeEquals", "value": 0, "label": "정상 실행(exit code 0)" },
+        { "type": "traceHasStep", "value": "executor_call", "label": "executor 호출 이벤트 존재" }
+      ],
       "terminalCommands": [],
       "sqlPresets": [
         {
@@ -81,6 +100,13 @@
         "실패 예: exit 2 전후, 파싱 오류 메시지가 stderr에 나오는가?"
       ],
       "offline": false,
+      "focusPanels": ["tokens", "ast", "result"],
+      "hidePanels": ["executor"],
+      "verifyHint": "4단계는 AST와 parse 성공/실패 신호를 우선 확인합니다.",
+      "expectedChecks": [
+        { "type": "traceHasStep", "value": "lexer_tokens", "label": "lexer 토큰 이벤트 존재" },
+        { "type": "traceHasStep", "value": "parser_result", "label": "parser 결과 이벤트 존재" }
+      ],
       "terminalCommands": [],
       "sqlPresets": [
         {
@@ -108,6 +134,17 @@
         "같은 `id`에 대해 `SELECT *` 한 줄과 `WHERE id = k` 한 줄의 TSV 데이터 부분이 동일한가?"
       ],
       "offline": false,
+      "focusPanels": ["executor", "result"],
+      "hidePanels": ["tokens"],
+      "verifyHint": "5단계는 인덱스 경로/기존 경로 결과의 데이터 일치를 비교합니다.",
+      "expectedChecks": [
+        { "type": "exitCodeEquals", "value": 0, "label": "정상 실행(exit code 0)" },
+        { "type": "traceHasStep", "value": "executor_call", "label": "executor 호출 이벤트 존재" }
+      ],
+      "comparePresets": {
+        "sqlA": "SELECT id, name, email FROM users;\n",
+        "sqlB": "SELECT id, name, email FROM users WHERE id = 5;\n"
+      },
       "terminalCommands": [],
       "sqlPresets": [
         {
@@ -130,6 +167,12 @@
         "앞 단계의 파싱 실패 쿼리에서 exit code가 문서와 일치하는가?"
       ],
       "offline": false,
+      "focusPanels": ["result"],
+      "hidePanels": ["tokens", "ast"],
+      "verifyHint": "6단계는 miss/에러 경계와 exit code를 확인하는 단계입니다.",
+      "expectedChecks": [
+        { "type": "traceHasStep", "value": "parser_result", "label": "parser 결과 이벤트 존재" }
+      ],
       "terminalCommands": [],
       "sqlPresets": [
         {
@@ -152,6 +195,10 @@
         "README 표의 재현 명령을 팀 환경에서 한 번 돌려볼 수 있는가?"
       ],
       "offline": true,
+      "focusPanels": ["result"],
+      "hidePanels": ["tokens", "ast", "executor"],
+      "verifyHint": "7단계는 bench_bplus 터미널 실행 결과를 README 재현성과 함께 확인합니다.",
+      "expectedChecks": [],
       "terminalCommands": [
         "cmake --build build-ninja --target bench_bplus",
         ".\\build-ninja\\bench_bplus.exe compare 1000000 10000",

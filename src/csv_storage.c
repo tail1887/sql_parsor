@@ -207,6 +207,88 @@ int csv_storage_read_table(const char *table, CsvTable **out) {
     return 0;
 }
 
+int csv_storage_read_table_row(const char *table, size_t row_index, CsvTable **out) {
+    if (!table || !out) {
+        return -1;
+    }
+    *out = NULL;
+    char path[512];
+    if (build_table_path(table, path, sizeof path) != 0) {
+        return -1;
+    }
+
+    FILE *fp = fopen(path, "rb");
+    if (!fp) {
+        return -1;
+    }
+
+    char line[CSV_LINE_CAP];
+    if (!fgets(line, sizeof line, fp)) {
+        fclose(fp);
+        return -1;
+    }
+
+    CsvTable *t = calloc(1, sizeof *t);
+    if (!t) {
+        fclose(fp);
+        return -1;
+    }
+    if (parse_csv_line(line, &t->headers, &t->header_count) != 0) {
+        fclose(fp);
+        free(t);
+        return -1;
+    }
+    t->rows = calloc(1, sizeof *t->rows);
+    if (!t->rows) {
+        fclose(fp);
+        free_cells(t->headers, t->header_count);
+        free(t);
+        return -1;
+    }
+
+    size_t cur = 0;
+    int found = 0;
+    while (fgets(line, sizeof line, fp)) {
+        size_t i = 0;
+        while (line[i] == ' ' || line[i] == '\t' || line[i] == '\r' || line[i] == '\n') {
+            i++;
+        }
+        if (line[i] == '\0') {
+            continue;
+        }
+
+        char **cells = NULL;
+        size_t ccount = 0;
+        if (parse_csv_line(line, &cells, &ccount) != 0) {
+            fclose(fp);
+            csv_storage_free_table(t);
+            return -1;
+        }
+        if (ccount != t->header_count) {
+            free_cells(cells, ccount);
+            fclose(fp);
+            csv_storage_free_table(t);
+            return -1;
+        }
+
+        if (cur == row_index) {
+            t->rows[0] = cells;
+            t->row_count = 1;
+            found = 1;
+            break;
+        }
+        cur++;
+        free_cells(cells, ccount);
+    }
+
+    fclose(fp);
+    if (!found) {
+        t->row_count = 0;
+    }
+    *out = t;
+    return 0;
+}
+
 static int append_csv_escaped(FILE *fp, const char *s) {
     if (fputc('"', fp) == EOF) return -1;
     for (size_t i = 0; s[i] != '\0'; i++) {
@@ -353,6 +435,7 @@ int csv_storage_column_count(const char *table, size_t *out_count) {
     return 0;
 }
 
+// csv_storage_data_row_count 함수 정의 이 함수는 테이블의 데이터 행 개수를 구하는 함수이다. 
 int csv_storage_data_row_count(const char *table, size_t *out_count) {
     if (!table || !out_count) {
         return -1;

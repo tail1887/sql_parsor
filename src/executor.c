@@ -80,10 +80,24 @@ int executor_execute_select(const SelectStmt *stmt, FILE *out) {
         int hit = (week7_lookup_row(stmt->table, stmt->where_id_value, &ridx) == 0);
 
         CsvTable *t = NULL;
-        if (csv_storage_read_table(stmt->table, &t) != 0 || !t) {
+        if (hit) {
+            if (csv_storage_read_table_row(stmt->table, ridx, &t) != 0 || !t) {
+                return -1;
+            }
+        } else {
+            if (csv_storage_read_table_row(stmt->table, (size_t)-1, &t) != 0 || !t) {
+                return -1;
+            }
+        }
+        if (hit && t->row_count != 1) {
+            csv_storage_free_table(t);
             return -1;
         }
-        if (hit && ridx >= t->row_count) {
+        if (!hit && t->row_count != 0) {
+            csv_storage_free_table(t);
+            return -1;
+        }
+        if (t->header_count == 0) {
             csv_storage_free_table(t);
             return -1;
         }
@@ -110,7 +124,7 @@ int executor_execute_select(const SelectStmt *stmt, FILE *out) {
                         rc = -1;
                         goto wdone;
                     }
-                    if (fputs(t->rows[ridx][c], out) == EOF) {
+                    if (fputs(t->rows[0][c], out) == EOF) {
                         rc = -1;
                         goto wdone;
                     }
@@ -158,7 +172,7 @@ int executor_execute_select(const SelectStmt *stmt, FILE *out) {
                         rc = -1;
                         goto wdone;
                     }
-                    if (fputs(t->rows[ridx][idx[i]], out) == EOF) {
+                    if (fputs(t->rows[0][idx[i]], out) == EOF) {
                         free(idx);
                         rc = -1;
                         goto wdone;

@@ -15,6 +15,9 @@ typedef struct {
 /* data/<table>.csv 전체를 읽어 헤더+행을 메모리에 적재한다. */
 int csv_storage_read_table(const char *table, CsvTable **out);
 
+/* 헤더 + 지정한 0-based 데이터 행 하나만 읽는다. 없으면 row_count=0 으로 반환한다. */
+int csv_storage_read_table_row(const char *table, size_t row_index, CsvTable **out);
+
 /* INSERT AST 값들을 CSV 한 행으로 직렬화해 파일 끝에 append 한다. */
 int csv_storage_append_insert_row(const char *table, const SqlValue *values, size_t value_count);
 
