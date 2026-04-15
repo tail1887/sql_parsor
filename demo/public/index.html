@@ -7,7 +7,7 @@
   <link rel="stylesheet" href="/styles.css">
 </head>
 <body data-nav-page="home">
-  <nav class="topnav" aria-label="주차 데모">
+  <nav class="topnav" aria-label="데모 탐색">
     <a class="brand" href="/">SQL Processor</a>
     <div class="nav-links">
       <a href="/" data-nav="home">홈</a>
@@ -20,36 +20,40 @@
     <header class="hero">
       <h1>SQL Processor 브라우저 데모</h1>
       <p class="lead">
-        저장소의 <code>sql_processor_trace</code> 를 호출해, SQL이 Lexer → Parser(AST) → Executor 를 거치는 과정과 실행 결과를 한 화면에서 확인합니다.
+        SQL을 lexer, parser, executor, CSV 저장 흐름으로 실행하고, trace와 데이터 diff를 브라우저에서 바로 확인할 수 있습니다.
       </p>
     </header>
 
     <section class="card pick">
-      <h2>주차별로 열기</h2>
-      <p class="muted">6주차는 MVP 파이프라인, 7주차는 자동 PK·B+ 인덱스·<code>WHERE id =</code> 중심 예제입니다.</p>
+      <h2>데모 선택</h2>
+      <p class="muted">
+        Week 6은 SQL 파이프라인 전체 흐름을 보여주고, Week 7은 자동 ID, 인덱스 기반
+        <code>WHERE id = ...</code>, B+ 트리 벤치를 다룹니다.
+      </p>
       <div class="tiles">
         <a class="tile" href="/week6.html">
           <span class="tile-label">Week 6</span>
           <strong>INSERT / SELECT 파이프라인</strong>
-          <span class="muted small">토큰·AST·CSV diff</span>
+          <span class="muted small">토큰, AST, executor, CSV diff</span>
         </a>
         <a class="tile" href="/week7.html">
           <span class="tile-label">Week 7</span>
-          <strong>학습 가이드 단계별 실습</strong>
-          <span class="muted small">단계 1~7 · 터미널+SQL · Lexer~결과</span>
+          <strong>자동 ID와 B+ 트리 실험</strong>
+          <span class="muted small">인덱스 조회 흐름과 벤치 비교</span>
         </a>
       </div>
     </section>
 
     <section class="card">
-      <h2>실행 방법</h2>
+      <h2>사용 방법</h2>
       <ol class="steps-list">
-        <li>저장소 루트에서 <code>sql_processor_trace</code> 타깃을 빌드합니다.</li>
-        <li><code>demo</code> 폴더에서 <code>npm install</code> 후 <code>npm start</code> 를 실행합니다.</li>
-        <li>브라우저에서 이 페이지 주소(기본 <code>http://localhost:4010</code>)로 접속합니다.</li>
+        <li>필요하면 데모 바이너리를 먼저 빌드합니다.</li>
+        <li><code>demo</code> 폴더에서 서버를 실행합니다.</li>
+        <li><code>http://localhost:4010</code> 을 브라우저에서 엽니다.</li>
       </ol>
     </section>
   </main>
+
   <script src="/nav.js"></script>
 </body>
 </html>

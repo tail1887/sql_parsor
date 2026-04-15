@@ -161,3 +161,10 @@ B+ 트리·자동 `id`·`WHERE id = …` 가 붙은 뒤의 **INSERT / SELECT(인
 - **환경 변수**: MVP 에서 필수 아님.
 - **로깅**: stderr 에 human-readable 메시지로 충분.
 
+
+## 8) Data Integrity Rules
+
+- CSV rows that contain only whitespace are ignored consistently by csv_storage_read_table, csv_storage_read_table_row, and csv_storage_data_row_count.
+- For WEEK7 tables whose first header column is id, each stored id must be a strict integer string. Extra trailing characters or whitespace inside the stored field are treated as corrupted data.
+- Duplicate stored id values in a WEEK7 id PK table are treated as corrupted data. Index loading fails instead of silently replacing an earlier row reference.
+

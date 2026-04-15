@@ -3,11 +3,11 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>Week 6 — SQL Processor Demo</title>
+  <title>Week 6 SQL Processor 데모</title>
   <link rel="stylesheet" href="/styles.css">
 </head>
 <body data-nav-page="week6" data-demo-week="6">
-  <nav class="topnav" aria-label="주차 데모">
+  <nav class="topnav" aria-label="데모 탐색">
     <a class="brand" href="/">SQL Processor</a>
     <div class="nav-links">
       <a href="/" data-nav="home">홈</a>
@@ -17,12 +17,16 @@
   </nav>
 
   <main class="wrap week6-pipeline">
-    <h1>Week 6 · SQL 처리 파이프라인 데모</h1>
-    <p class="muted">Step 1~5: SQL 입력 → Lexer → Parser(AST) → Executor → 결과 · <code>users.csv</code> 실행 전후 diff</p>
-    <p class="muted small">참고: <code>data/users.csv</code> 첫 컬럼이 <code>id</code> 이면 Week 7 규칙으로 <strong>INSERT 시 id 값은 무시</strong>되고 자동 증가합니다. 자동 PK·<code>WHERE id =</code> 예제는 <a href="/week7.html">Week 7</a> 페이지를 사용하세요.</p>
+    <h1>Week 6 SQL 파이프라인 데모</h1>
+    <p class="muted">
+      SQL 입력부터 lexer, parser AST, executor, stdout, stderr, <code>users.csv</code> diff까지 한 번에 확인할 수 있습니다.
+    </p>
+    <p class="muted small">
+      <code>data/users.csv</code>의 첫 컬럼이 <code>id</code>면 INSERT 시 Week 7 자동 ID 규칙이 적용됩니다. 인덱스 기반 흐름은 Week 7 페이지에서 확인하세요.
+    </p>
 
     <section class="card">
-      <h2>Step 1. SQL 입력</h2>
+      <h2>1단계. SQL 입력</h2>
       <div id="examples" class="row"></div>
       <textarea id="sqlInput" rows="8"></textarea>
       <div class="row">
@@ -31,27 +35,29 @@
     </section>
 
     <section class="card">
-      <h2>Step 2. Lexer 결과</h2>
+      <h2>2단계. Lexer 결과</h2>
       <div class="tableWrap">
         <table id="tokenTable">
-          <thead><tr><th>kind</th><th>text</th><th>line</th><th>column</th></tr></thead>
+          <thead>
+            <tr><th>kind</th><th>text</th><th>line</th><th>column</th></tr>
+          </thead>
           <tbody></tbody>
         </table>
       </div>
     </section>
 
     <section class="card">
-      <h2>Step 3. Parser(AST)</h2>
+      <h2>3단계. Parser AST</h2>
       <pre id="astView"></pre>
     </section>
 
     <section class="card">
-      <h2>Step 4. Executor 호출</h2>
+      <h2>4단계. Executor 호출</h2>
       <ul id="executorList"></ul>
     </section>
 
     <section class="card">
-      <h2>Step 5. 결과</h2>
+      <h2>5단계. 실행 결과</h2>
       <div class="grid2">
         <div>
           <h3>stdout (TSV)</h3>
@@ -67,6 +73,7 @@
       <pre id="diffView"></pre>
     </section>
   </main>
+
   <script src="/nav.js"></script>
   <script src="/app.js"></script>
 </body>

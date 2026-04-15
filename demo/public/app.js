@@ -27,6 +27,7 @@ function simpleLineDiff(before, after) {
   const b = after.split(/\r?\n/);
   const lines = [];
   const max = Math.max(a.length, b.length);
+
   for (let i = 0; i < max; i++) {
     const va = a[i] ?? "";
     const vb = b[i] ?? "";
@@ -37,6 +38,7 @@ function simpleLineDiff(before, after) {
       if (vb !== "") lines.push(`+ ${vb}`);
     }
   }
+
   return lines.join("\n");
 }
 
@@ -66,6 +68,7 @@ function render(events, result) {
       executorList.appendChild(li);
     }
   }
+
   astView.textContent = asts.length ? JSON.stringify(asts, null, 2) : "(AST 없음)";
 
   const before = getUsersCsv(result.csvBefore || {});
@@ -74,8 +77,9 @@ function render(events, result) {
 }
 
 async function loadExamples() {
-  const res = await fetch("/api/examples?week=" + encodeURIComponent(demoWeek));
+  const res = await fetch(`/api/examples?week=${encodeURIComponent(demoWeek)}`);
   const data = await res.json();
+
   for (const ex of data.examples || []) {
     const btn = document.createElement("button");
     btn.type = "button";
@@ -93,11 +97,11 @@ runBtn.addEventListener("click", async () => {
     const res = await fetch("/api/run", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ sql: sqlInput.value })
+      body: JSON.stringify({ sql: sqlInput.value }),
     });
     const data = await res.json();
     if (!res.ok) {
-      throw new Error(data.error || "run failed");
+      throw new Error(data.error || "실행에 실패했습니다");
     }
     render(data.traceEvents || [], data);
   } catch (e) {

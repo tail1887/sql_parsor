@@ -138,3 +138,10 @@ io error: failed to open data/missing.csv
 - SELECT 출력을 TSV 고정 vs CSV 고정
 - Stretch WHERE 채택 시 비교 연산·타입 규칙
 
+
+## 9) Data Integrity Rules
+
+- WEEK7 id PK tables fail to load if the stored CSV already contains duplicate id values.
+- WEEK7 id PK tables fail to load if any stored id field is not a strict integer string.
+- Blank data rows that contain only whitespace are ignored consistently by CSV readers and row counters.
+

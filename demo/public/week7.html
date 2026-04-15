@@ -3,11 +3,11 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>WEEK7 — B+ 인덱스 & 성능 비교 데모</title>
+  <title>Week 7 B+ 트리 데모</title>
   <link rel="stylesheet" href="/styles.css">
 </head>
 <body data-nav-page="week7" data-demo-week="7">
-  <nav class="topnav" aria-label="주차 데모">
+  <nav class="topnav" aria-label="데모 탐색">
     <a class="brand" href="/">SQL Processor</a>
     <div class="nav-links">
       <a href="/" data-nav="home">홈</a>
@@ -18,23 +18,21 @@
 
   <main class="wrap week7-guide">
     <header class="lab-header">
-      <h1>WEEK7 데모: 자동 ID + B+ 인덱스 / 대규모 성능 비교</h1>
+      <h1>Week 7 데모: 자동 ID + B+ 트리</h1>
       <p class="muted">
-        이 페이지는 두 가지를 집중적으로 보여줍니다:
-        <strong>(1) INSERT 시 자동 ID 부여 + B+ 인덱스 등록</strong>,
-        <strong>(2) 1,000,000건 이상 기준 인덱스 vs 선형 탐색 성능 비교</strong>.
+        이 페이지에서는 인덱스 기반 SQL 흐름과 더 넓은 B+ 트리 설정의 벤치 비교를 함께 확인할 수 있습니다.
       </p>
     </header>
 
     <section class="card">
-      <h2>1) 자동 ID 부여 + ID 기반 B+ 인덱스 조회</h2>
+      <h2>1) 인덱스 SQL 흐름</h2>
       <ul class="seq-guide-list">
-        <li>INSERT에서 id를 생략하면 <code>week7_prepare_insert_values</code>가 자동 ID를 채웁니다.</li>
-        <li>append 성공 직후 <code>week7_on_append_success</code>가 <code>(id -&gt; row_ref)</code>를 인덱스에 반영합니다.</li>
-        <li><code>SELECT ... WHERE id = N</code>은 <code>week7_lookup_row</code>를 통해 B+ 인덱스 경로를 탑니다.</li>
+        <li>명시적인 id 없이 INSERT를 실행해 자동 ID 경로를 확인합니다.</li>
+        <li><code>WHERE id = ...</code> 를 실행해 인덱스 기반 SELECT 경로를 봅니다.</li>
+        <li>각 실행 뒤의 CSV diff와 trace 요약을 비교합니다.</li>
       </ul>
       <div class="preset-row" id="flowPresetRow"></div>
-      <textarea id="flowSqlInput" rows="8" placeholder="프리셋을 선택하거나 SQL을 직접 입력하세요."></textarea>
+      <textarea id="flowSqlInput" rows="8" placeholder="프리셋을 고르거나 SQL을 직접 입력하세요."></textarea>
       <div class="row">
         <button id="flowRunBtn" type="button">SQL 실행</button>
       </div>
@@ -48,34 +46,33 @@
           <pre id="flowStderr"></pre>
         </div>
       </div>
-      <p id="flowExitCode">exit code: —</p>
-      <h3>trace 핵심 step</h3>
+      <p id="flowExitCode">exit code: ?</p>
+      <h3>trace 요약</h3>
       <pre id="flowTraceSummary"></pre>
       <h3>users.csv diff</h3>
       <pre id="flowDiff"></pre>
     </section>
 
     <section class="card">
-      <h2>2) 대규모 데이터(1,000,000+) 성능 비교</h2>
+      <h2>2) 벤치 비교</h2>
       <p class="muted small">
-        <code>bench_bplus compare n k</code>는 대량 삽입 후 동일 질의 집합에 대해
-        <strong>ID 기반 인덱스 조회</strong>와 <strong>선형 탐색</strong> 시간을 함께 출력합니다.
+        벤치 바이너리를 빌드한 뒤, 기본 B+ 트리 fanout과 <code>BP_MAX_KEYS=31</code> 확장 버전을 비교할 수 있습니다.
       </p>
       <div class="row">
-        <input id="benchNInput" type="number" placeholder="n (최소 1000000)" />
-        <input id="benchKInput" type="number" placeholder="k (예: 10000)" />
+        <input id="benchNInput" type="number" placeholder="n (최소 1000000)">
+        <input id="benchKInput" type="number" placeholder="k (예: 10000)">
       </div>
       <div class="preset-row">
-        <button id="benchBuildBtn" type="button">bench_bplus 빌드</button>
-        <button id="benchRunBtn" type="button">기본(compare) 실행</button>
-        <button id="benchRunWideBtn" type="button">확장(compare) 실행</button>
-        <button id="benchRunBothBtn" type="button">기본 vs 확장 동시 비교</button>
+        <button id="benchBuildBtn" type="button">벤치 빌드</button>
+        <button id="benchRunBtn" type="button">기본 실행</button>
+        <button id="benchRunWideBtn" type="button">확장 실행</button>
+        <button id="benchRunBothBtn" type="button">둘 다 비교</button>
       </div>
       <h3>실행 명령</h3>
       <pre id="benchCmdView"></pre>
       <h3>실행 결과</h3>
       <pre id="benchOutput"></pre>
-      <h3>해석</h3>
+      <h3>요약</h3>
       <pre id="benchSummary"></pre>
     </section>
   </main>

@@ -71,6 +71,9 @@ target_include_directories(test_executor PRIVATE "${CMAKE_CURRENT_SOURCE_DIR}/in
 add_executable(test_main_integration tests/test_main_integration.c src/sql_processor.c src/executor.c src/csv_storage.c src/parser.c src/ast.c src/lexer.c src/week7/bplus_tree.c src/week7/week7_index.c)
 target_include_directories(test_main_integration PRIVATE "${CMAKE_CURRENT_SOURCE_DIR}/include")
 
+add_executable(test_data_integrity tests/test_data_integrity.c src/executor.c src/csv_storage.c src/parser.c src/ast.c src/lexer.c src/week7/bplus_tree.c src/week7/week7_index.c)
+target_include_directories(test_data_integrity PRIVATE "${CMAKE_CURRENT_SOURCE_DIR}/include")
+
 # WEEK7: B+ tree unit tests (docs/weeks/WEEK7/implementation-order.md 단계 1)
 add_executable(test_bplus_tree tests/test_bplus_tree.c src/week7/bplus_tree.c)
 target_include_directories(test_bplus_tree PRIVATE "${CMAKE_CURRENT_SOURCE_DIR}/include")
@@ -114,6 +117,7 @@ add_test(NAME csv_storage_unit COMMAND $<TARGET_FILE:test_csv_storage>)
 add_test(NAME executor_unit COMMAND $<TARGET_FILE:test_executor>)
 add_test(NAME main_integration COMMAND $<TARGET_FILE:test_main_integration>)
 add_test(NAME bplus_tree_unit COMMAND $<TARGET_FILE:test_bplus_tree>)
+add_test(NAME data_integrity_unit COMMAND $<TARGET_FILE:test_data_integrity>)
 
 set_tests_properties(bootstrap_smoke lexer_unit parser_insert_unit parser_select_unit csv_storage_unit executor_unit
-                     main_integration bplus_tree_unit PROPERTIES WORKING_DIRECTORY "${CMAKE_CURRENT_SOURCE_DIR}")
+                     main_integration bplus_tree_unit data_integrity_unit PROPERTIES WORKING_DIRECTORY "${CMAKE_CURRENT_SOURCE_DIR}")

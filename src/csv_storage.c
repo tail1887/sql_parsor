@@ -129,6 +129,14 @@ static void free_cells(char **cells, size_t count) {
     free(cells);
 }
 
+static int is_blank_line(const char *line) {
+    size_t i = 0;
+    while (line[i] == ' ' || line[i] == '\t' || line[i] == '\r' || line[i] == '\n') {
+        i++;
+    }
+    return line[i] == '\0';
+}
+
 static int build_table_path(const char *table, char *buf, size_t n) {
     int w = snprintf(buf, n, "data/%s.csv", table);
     return (w > 0 && (size_t)w < n) ? 0 : -1;
@@ -174,6 +182,9 @@ int csv_storage_read_table(const char *table, CsvTable **out) {
     }
 
     while (fgets(line, sizeof line, fp)) {
+        if (is_blank_line(line)) {
+            continue;
+        }
         char **cells = NULL;
         size_t ccount = 0;
         if (parse_csv_line(line, &cells, &ccount) != 0) {
@@ -249,11 +260,7 @@ int csv_storage_read_table_row(const char *table, size_t row_index, CsvTable **o
     size_t cur = 0;
     int found = 0;
     while (fgets(line, sizeof line, fp)) {
-        size_t i = 0;
-        while (line[i] == ' ' || line[i] == '\t' || line[i] == '\r' || line[i] == '\n') {
-            i++;
-        }
-        if (line[i] == '\0') {
+        if (is_blank_line(line)) {
             continue;
         }
 
@@ -456,11 +463,7 @@ int csv_storage_data_row_count(const char *table, size_t *out_count) {
     }
     size_t rows = 0;
     while (fgets(line, sizeof line, fp)) {
-        size_t i = 0;
-        while (line[i] == ' ' || line[i] == '\t' || line[i] == '\r' || line[i] == '\n') {
-            i++;
-        }
-        if (line[i] != '\0') {
+        if (!is_blank_line(line)) {
             rows++;
         }
     }
