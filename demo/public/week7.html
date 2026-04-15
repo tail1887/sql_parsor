@@ -3,7 +3,7 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>WEEK7 — 러닝 가이드 실습</title>
+  <title>WEEK7 — B+ 인덱스 & 성능 비교 데모</title>
   <link rel="stylesheet" href="/styles.css">
 </head>
 <body data-nav-page="week7" data-demo-week="7">
@@ -18,504 +18,66 @@
 
   <main class="wrap week7-guide">
     <header class="lab-header">
-      <h1>WEEK7 러닝 가이드 실습</h1>
+      <h1>WEEK7 데모: 자동 ID + B+ 인덱스 / 대규모 성능 비교</h1>
       <p class="muted">
-        <code>docs/weeks/WEEK7/learning-guide.md</code> 기준으로 단계 1~7을 바로 따라가며 확인하는 페이지입니다.
-        <strong>1, 7단계</strong>는 터미널 중심, <strong>2~6단계</strong>는 SQL 실행 중심으로 구성했습니다.
+        이 페이지는 두 가지를 집중적으로 보여줍니다:
+        <strong>(1) INSERT 시 자동 ID 부여 + B+ 인덱스 등록</strong>,
+        <strong>(2) 1,000,000건 이상 기준 인덱스 vs 선형 탐색 성능 비교</strong>.
       </p>
     </header>
 
-    <div class="lab-grid">
-      <nav class="step-nav card" id="stepNav" aria-label="WEEK7 단계"></nav>
-
-      <div class="lab-main">
-        <article class="card step-detail" id="stepDetail">
-          <p class="muted">왼쪽에서 단계를 선택하세요.</p>
-        </article>
-
-        <section class="card terminal-runner" id="terminalRunnerSection">
-          <h2>터미널 실행 (프리셋 적용)</h2>
-          <p class="muted small">단계별 프리셋을 누르면 명령이 채워집니다. 바로 실행해서 결과를 확인하세요.</p>
-          <div id="terminalPresetRow" class="preset-row"></div>
-          <textarea id="terminalCmdInput" rows="6" placeholder="프리셋을 선택하면 명령이 채워집니다."></textarea>
-          <div class="row">
-            <button id="terminalRunBtn" type="button">터미널 실행</button>
-          </div>
-          <pre id="terminalOutput"></pre>
-        </section>
-
-        <section class="card" id="step1Visualizer" hidden>
-          <h2>1단계 핵심 시퀀스 시각화 (A/B/C)</h2>
-          <p class="muted small">B+ 트리 단독 모듈의 핵심 동작을 전/후 트리로 확인합니다.</p>
-
-          <div class="step1-grid">
-            <article class="step1-box">
-              <h3>A. 검색</h3>
-              <p class="muted small">검색 전 트리에서 key를 찾고, hit/miss 결과를 확인</p>
-              <div class="row">
-                <input id="aKeysInput" type="text" placeholder="키 목록 예: 10,20,30" />
-                <input id="aSearchKeyInput" type="number" placeholder="검색 key" />
-                <button id="aRunBtn" type="button">A 실행</button>
-              </div>
-              <div class="grid2">
-                <div>
-                  <h4>검색 전 트리</h4>
-                  <pre id="aBeforeTree"></pre>
-                </div>
-                <div>
-                  <h4>검색 결과</h4>
-                  <pre id="aAfterResult"></pre>
-                </div>
-              </div>
-            </article>
-
-            <article class="step1-box">
-              <h3>B. 삽입 (여유 있음)</h3>
-              <p class="muted small">리프에 여유가 있는 상태에서 정렬 삽입</p>
-              <div class="row">
-                <input id="bKeysInput" type="text" placeholder="키 목록(최대 2개 권장) 예: 10,30" />
-                <input id="bInsertKeyInput" type="number" placeholder="삽입 key" />
-                <button id="bRunBtn" type="button">B 실행</button>
-              </div>
-              <div class="grid2">
-                <div>
-                  <h4>삽입 전 트리</h4>
-                  <pre id="bBeforeTree"></pre>
-                </div>
-                <div>
-                  <h4>삽입 후 트리</h4>
-                  <pre id="bAfterTree"></pre>
-                </div>
-              </div>
-              <pre id="bTrace"></pre>
-            </article>
-
-            <article class="step1-box">
-              <h3>C. 삽입 (리프 꽉 참 → split)</h3>
-              <p class="muted small">리프 분할 후 `sep`가 부모로 올라가는 흐름</p>
-              <div class="row">
-                <input id="cKeysInput" type="text" placeholder="키 목록(3개) 예: 10,20,30" />
-                <input id="cInsertKeyInput" type="number" placeholder="삽입 key" />
-                <button id="cRunBtn" type="button">C 실행</button>
-              </div>
-              <div class="grid2">
-                <div>
-                  <h4>삽입 전 트리</h4>
-                  <pre id="cBeforeTree"></pre>
-                </div>
-                <div>
-                  <h4>삽입 후 트리</h4>
-                  <pre id="cAfterTree"></pre>
-                </div>
-              </div>
-              <pre id="cTrace"></pre>
-            </article>
-          </div>
-        </section>
-
-        <section class="card" id="step2Visualizer" hidden>
-          <h2>2단계 핵심 시퀀스 시각화 (A/B/C)</h2>
-          <p class="muted small">자동 id + row_ref 준비 흐름을 전/후 상태로 확인합니다.</p>
-
-          <div class="step1-grid">
-            <article class="step1-box">
-              <h3>A. 초기 로드(ensure)</h3>
-              <p class="muted small">CSV를 읽어 (id -> row_index) 인덱스를 재구축하고 next_id 계산</p>
-              <div class="row">
-                <input id="s2aIdsInput" type="text" placeholder="CSV id 열 예: 1,2,4,4" />
-                <button id="s2aRunBtn" type="button">A 실행</button>
-              </div>
-              <div class="grid2">
-                <div>
-                  <h4>로드 전 상태</h4>
-                  <pre id="s2aBefore"></pre>
-                </div>
-                <div>
-                  <h4>로드 후 상태</h4>
-                  <pre id="s2aAfter"></pre>
-                </div>
-              </div>
-            </article>
-
-            <article class="step1-box">
-              <h3>B. INSERT 준비</h3>
-              <p class="muted small">next_id를 첫 컬럼에 채워 실제 append 값 배열 생성</p>
-              <div class="row">
-                <input id="s2bNextIdInput" type="number" placeholder="next_id 예: 5" />
-                <input id="s2bValuesInput" type="text" placeholder="입력 값 예: 'name','email'" />
-                <button id="s2bRunBtn" type="button">B 실행</button>
-              </div>
-              <div class="grid2">
-                <div>
-                  <h4>준비 전</h4>
-                  <pre id="s2bBefore"></pre>
-                </div>
-                <div>
-                  <h4>준비 후</h4>
-                  <pre id="s2bAfter"></pre>
-                </div>
-              </div>
-            </article>
-
-            <article class="step1-box">
-              <h3>C. append 성공 후 동기화</h3>
-              <p class="muted small">row_ref 계산 후 (assigned_id -> row_ref) 인덱스 반영</p>
-              <div class="row">
-                <input id="s2cTotalRowsInput" type="number" placeholder="append 후 total rows 예: 6" />
-                <input id="s2cAssignedIdInput" type="number" placeholder="assigned_id 예: 5" />
-                <button id="s2cRunBtn" type="button">C 실행</button>
-              </div>
-              <div class="grid2">
-                <div>
-                  <h4>동기화 전</h4>
-                  <pre id="s2cBefore"></pre>
-                </div>
-                <div>
-                  <h4>동기화 후</h4>
-                  <pre id="s2cAfter"></pre>
-                </div>
-              </div>
-            </article>
-          </div>
-        </section>
-
-        <section class="card" id="step3Visualizer" hidden>
-          <h2>3단계 핵심 시퀀스 시각화 (A/B/C)</h2>
-          <p class="muted small">INSERT 경로 인덱스 연동의 성공/실패/직후 조회 일치 흐름을 확인합니다.</p>
-
-          <div class="step1-grid">
-            <article class="step1-box">
-              <h3>A. 성공 경로 (순서 고정)</h3>
-              <p class="muted small">prepare -> append 성공 -> row_ref 계산 -> on_append_success</p>
-              <div class="row">
-                <input id="s3aAssignedIdInput" type="number" placeholder="assigned_id 예: 7" />
-                <input id="s3aTotalRowsInput" type="number" placeholder="append 후 total rows 예: 8" />
-                <button id="s3aRunBtn" type="button">A 실행</button>
-              </div>
-              <div class="grid2">
-                <div>
-                  <h4>실행 전</h4>
-                  <pre id="s3aBefore"></pre>
-                </div>
-                <div>
-                  <h4>실행 후</h4>
-                  <pre id="s3aAfter"></pre>
-                </div>
-              </div>
-            </article>
-
-            <article class="step1-box">
-              <h3>B. 실패 경로 (append 실패)</h3>
-              <p class="muted small">append 실패 시 on_append_success를 호출하지 않고 종료</p>
-              <div class="row">
-                <input id="s3bReasonInput" type="text" placeholder="실패 원인 예: I/O error" />
-                <button id="s3bRunBtn" type="button">B 실행</button>
-              </div>
-              <div class="grid2">
-                <div>
-                  <h4>실행 전</h4>
-                  <pre id="s3bBefore"></pre>
-                </div>
-                <div>
-                  <h4>실행 후</h4>
-                  <pre id="s3bAfter"></pre>
-                </div>
-              </div>
-            </article>
-
-            <article class="step1-box">
-              <h3>C. INSERT 직후 조회 일치</h3>
-              <p class="muted small">INSERT에서 반영한 (assigned_id -> row_ref)가 WHERE 조회에서도 동일해야 함</p>
-              <div class="row">
-                <input id="s3cAssignedIdInput" type="number" placeholder="assigned_id 예: 7" />
-                <input id="s3cRowRefInput" type="number" placeholder="row_ref 예: 7" />
-                <button id="s3cRunBtn" type="button">C 실행</button>
-              </div>
-              <div class="grid2">
-                <div>
-                  <h4>실행 전</h4>
-                  <pre id="s3cBefore"></pre>
-                </div>
-                <div>
-                  <h4>실행 후</h4>
-                  <pre id="s3cAfter"></pre>
-                </div>
-              </div>
-            </article>
-          </div>
-        </section>
-
-        <section class="card" id="step4Visualizer" hidden>
-          <h2>4단계 핵심 시퀀스 시각화 (A/B/C)</h2>
-          <p class="muted small">WHERE 파싱의 기본/성공/실패 경로를 분리해 확인합니다.</p>
-
-          <div class="step1-grid">
-            <article class="step1-box">
-              <h3>A. WHERE 없음 (기본 SELECT)</h3>
-              <div class="row">
-                <input id="s4aSqlInput" type="text" placeholder="SQL 예: SELECT id, name FROM users" />
-                <button id="s4aRunBtn" type="button">A 실행</button>
-              </div>
-              <div class="grid2">
-                <div>
-                  <h4>파싱 전</h4>
-                  <pre id="s4aBefore"></pre>
-                </div>
-                <div>
-                  <h4>파싱 후(AST)</h4>
-                  <pre id="s4aAfter"></pre>
-                </div>
-              </div>
-            </article>
-
-            <article class="step1-box">
-              <h3>B. WHERE id = 정수 (성공)</h3>
-              <div class="row">
-                <input id="s4bSqlInput" type="text" placeholder="SQL 예: SELECT * FROM users WHERE id = 7" />
-                <button id="s4bRunBtn" type="button">B 실행</button>
-              </div>
-              <div class="grid2">
-                <div>
-                  <h4>파싱 전</h4>
-                  <pre id="s4bBefore"></pre>
-                </div>
-                <div>
-                  <h4>파싱 후(AST)</h4>
-                  <pre id="s4bAfter"></pre>
-                </div>
-              </div>
-            </article>
-
-            <article class="step1-box">
-              <h3>C. 미지원 WHERE (실패)</h3>
-              <div class="row">
-                <input id="s4cSqlInput" type="text" placeholder="SQL 예: SELECT * FROM users WHERE id > 1" />
-                <button id="s4cRunBtn" type="button">C 실행</button>
-              </div>
-              <div class="grid2">
-                <div>
-                  <h4>파싱 전</h4>
-                  <pre id="s4cBefore"></pre>
-                </div>
-                <div>
-                  <h4>파싱 결과</h4>
-                  <pre id="s4cAfter"></pre>
-                </div>
-              </div>
-            </article>
-          </div>
-        </section>
-
-        <section class="card" id="step5Visualizer" hidden>
-          <h2>5단계 핵심 시퀀스 시각화 (A/B/C)</h2>
-          <p class="muted small">WHERE hit / WHERE miss / 비-WHERE 기존 경로를 분리해 확인합니다.</p>
-
-          <div class="step1-grid">
-            <article class="step1-box">
-              <h3>A. WHERE id 경로 — hit</h3>
-              <div class="row">
-                <input id="s5aIdInput" type="number" placeholder="조회 id 예: 5" />
-                <input id="s5aRowRefInput" type="number" placeholder="lookup row_ref 예: 4" />
-                <button id="s5aRunBtn" type="button">A 실행</button>
-              </div>
-              <div class="grid2">
-                <div>
-                  <h4>실행 전</h4>
-                  <pre id="s5aBefore"></pre>
-                </div>
-                <div>
-                  <h4>실행 후</h4>
-                  <pre id="s5aAfter"></pre>
-                </div>
-              </div>
-            </article>
-
-            <article class="step1-box">
-              <h3>B. WHERE id 경로 — miss</h3>
-              <div class="row">
-                <input id="s5bIdInput" type="number" placeholder="조회 id 예: 999999" />
-                <button id="s5bRunBtn" type="button">B 실행</button>
-              </div>
-              <div class="grid2">
-                <div>
-                  <h4>실행 전</h4>
-                  <pre id="s5bBefore"></pre>
-                </div>
-                <div>
-                  <h4>실행 후</h4>
-                  <pre id="s5bAfter"></pre>
-                </div>
-              </div>
-            </article>
-
-            <article class="step1-box">
-              <h3>C. 비-WHERE 기존 경로</h3>
-              <div class="row">
-                <input id="s5cSqlInput" type="text" placeholder="SQL 예: SELECT id, name FROM users" />
-                <button id="s5cRunBtn" type="button">C 실행</button>
-              </div>
-              <div class="grid2">
-                <div>
-                  <h4>실행 전</h4>
-                  <pre id="s5cBefore"></pre>
-                </div>
-                <div>
-                  <h4>실행 후</h4>
-                  <pre id="s5cAfter"></pre>
-                </div>
-              </div>
-            </article>
-          </div>
-        </section>
-
-        <section class="card" id="step6Visualizer" hidden>
-          <h2>6단계 핵심 시퀀스 시각화 (A/B/C)</h2>
-          <p class="muted small">miss 정상 경로 / parse error / I/O 실패 경로를 분리해 확인합니다.</p>
-
-          <div class="step1-grid">
-            <article class="step1-box">
-              <h3>A. WHERE id miss — 정상 경로</h3>
-              <div class="row">
-                <input id="s6aIdInput" type="number" placeholder="조회 id 예: 999999" />
-                <button id="s6aRunBtn" type="button">A 실행</button>
-              </div>
-              <div class="grid2">
-                <div>
-                  <h4>실행 전</h4>
-                  <pre id="s6aBefore"></pre>
-                </div>
-                <div>
-                  <h4>실행 후</h4>
-                  <pre id="s6aAfter"></pre>
-                </div>
-              </div>
-            </article>
-
-            <article class="step1-box">
-              <h3>B. 미지원 WHERE — parse error</h3>
-              <div class="row">
-                <input id="s6bSqlInput" type="text" placeholder="SQL 예: SELECT * FROM users WHERE id > 1" />
-                <button id="s6bRunBtn" type="button">B 실행</button>
-              </div>
-              <div class="grid2">
-                <div>
-                  <h4>파싱 전</h4>
-                  <pre id="s6bBefore"></pre>
-                </div>
-                <div>
-                  <h4>파싱 후</h4>
-                  <pre id="s6bAfter"></pre>
-                </div>
-              </div>
-            </article>
-
-            <article class="step1-box">
-              <h3>C. I/O 실패 — 실행 오류</h3>
-              <div class="row">
-                <input id="s6cTableInput" type="text" placeholder="테이블 예: missing_table" />
-                <button id="s6cRunBtn" type="button">C 실행</button>
-              </div>
-              <div class="grid2">
-                <div>
-                  <h4>실행 전</h4>
-                  <pre id="s6cBefore"></pre>
-                </div>
-                <div>
-                  <h4>실행 후</h4>
-                  <pre id="s6cAfter"></pre>
-                </div>
-              </div>
-            </article>
-          </div>
-        </section>
-
-        <section class="card" id="step7Visualizer" hidden>
-          <h2>7단계 핵심 시퀀스 시각화 (통합)</h2>
-          <p class="muted small">build -> compare 실행 -> 지표 해석까지 하나의 벤치 흐름으로 확인합니다.</p>
-
-          <div class="step1-grid">
-            <article class="step1-box">
-              <h3>통합 벤치 경로</h3>
-              <div class="row">
-                <input id="s7nInput" type="number" placeholder="n 예: 1000000" />
-                <input id="s7kInput" type="number" placeholder="k 예: 10000" />
-                <button id="s7RunBtn" type="button">실행 흐름 생성</button>
-              </div>
-              <div class="grid2">
-                <div>
-                  <h4>실행 명령</h4>
-                  <pre id="s7Before"></pre>
-                </div>
-                <div>
-                  <h4>예상 출력/해석</h4>
-                  <pre id="s7After"></pre>
-                </div>
-              </div>
-            </article>
-          </div>
-        </section>
-
-        <section class="card lab-run" id="sqlRunSection">
-          <h2>SQL 실행 (2~6단계)</h2>
-          <p class="muted small" id="runHint"></p>
-          <div id="presetRow" class="preset-row"></div>
-          <textarea id="sqlInput" rows="10" placeholder="프리셋을 누르거나 직접 SQL을 입력하세요."></textarea>
-          <div class="row">
-            <button id="runBtn" type="button">실행 (sql_processor_trace)</button>
-            <button id="genSqlCmdBtn" type="button">명령어 생성</button>
-            <button id="copySqlCmdBtn" type="button">명령어 복사</button>
-          </div>
-          <div id="sqlCmdBox" class="cmd-box" hidden>
-            <p class="muted small">선택 SQL의 터미널 실행 명령</p>
-            <pre id="sqlCmdView"></pre>
-          </div>
-        </section>
-
-        <section class="card terminal-guide" id="terminalGuideSection">
-          <h2>터미널 검증 (1, 7단계)</h2>
-          <p class="muted small">아래 명령을 로컬 터미널에서 실행하고 결과를 팀원에게 공유하세요.</p>
-          <ol id="terminalCmdList" class="cmd-list"></ol>
-        </section>
-
-        <section class="card panel" id="panelTokens">
-          <h2>Lexer</h2>
-          <div class="tableWrap">
-            <table id="tokenTable">
-              <thead><tr><th>kind</th><th>text</th><th>line</th><th>column</th></tr></thead>
-              <tbody></tbody>
-            </table>
-          </div>
-        </section>
-
-        <section class="card panel" id="panelAst">
-          <h2>Parser (AST)</h2>
-          <pre id="astView"></pre>
-        </section>
-
-        <section class="card panel" id="panelExecutor">
-          <h2>Executor</h2>
-          <ul id="executorList"></ul>
-        </section>
-
-        <section class="card panel" id="panelResult">
-          <h2>결과</h2>
-          <div class="grid2">
-            <div>
-              <h3>stdout</h3>
-              <pre id="stdoutView"></pre>
-            </div>
-            <div>
-              <h3>stderr</h3>
-              <pre id="stderrView"></pre>
-            </div>
-          </div>
-          <p id="exitCode"></p>
-          <h3>data/*.csv diff (users.csv)</h3>
-          <pre id="diffView"></pre>
-        </section>
+    <section class="card">
+      <h2>1) 자동 ID 부여 + ID 기반 B+ 인덱스 조회</h2>
+      <ul class="seq-guide-list">
+        <li>INSERT에서 id를 생략하면 <code>week7_prepare_insert_values</code>가 자동 ID를 채웁니다.</li>
+        <li>append 성공 직후 <code>week7_on_append_success</code>가 <code>(id -&gt; row_ref)</code>를 인덱스에 반영합니다.</li>
+        <li><code>SELECT ... WHERE id = N</code>은 <code>week7_lookup_row</code>를 통해 B+ 인덱스 경로를 탑니다.</li>
+      </ul>
+      <div class="preset-row" id="flowPresetRow"></div>
+      <textarea id="flowSqlInput" rows="8" placeholder="프리셋을 선택하거나 SQL을 직접 입력하세요."></textarea>
+      <div class="row">
+        <button id="flowRunBtn" type="button">SQL 실행</button>
       </div>
-    </div>
+      <div class="grid2">
+        <div>
+          <h3>stdout</h3>
+          <pre id="flowStdout"></pre>
+        </div>
+        <div>
+          <h3>stderr</h3>
+          <pre id="flowStderr"></pre>
+        </div>
+      </div>
+      <p id="flowExitCode">exit code: —</p>
+      <h3>trace 핵심 step</h3>
+      <pre id="flowTraceSummary"></pre>
+      <h3>users.csv diff</h3>
+      <pre id="flowDiff"></pre>
+    </section>
+
+    <section class="card">
+      <h2>2) 대규모 데이터(1,000,000+) 성능 비교</h2>
+      <p class="muted small">
+        <code>bench_bplus compare n k</code>는 대량 삽입 후 동일 질의 집합에 대해
+        <strong>ID 기반 인덱스 조회</strong>와 <strong>선형 탐색</strong> 시간을 함께 출력합니다.
+      </p>
+      <div class="row">
+        <input id="benchNInput" type="number" placeholder="n (최소 1000000)" />
+        <input id="benchKInput" type="number" placeholder="k (예: 10000)" />
+      </div>
+      <div class="preset-row">
+        <button id="benchBuildBtn" type="button">bench_bplus 빌드</button>
+        <button id="benchRunBtn" type="button">compare 실행</button>
+      </div>
+      <h3>실행 명령</h3>
+      <pre id="benchCmdView"></pre>
+      <h3>실행 결과</h3>
+      <pre id="benchOutput"></pre>
+      <h3>해석</h3>
+      <pre id="benchSummary"></pre>
+    </section>
   </main>
+
   <script src="/nav.js"></script>
   <script src="/app-week7-lab.js"></script>
 </body>
