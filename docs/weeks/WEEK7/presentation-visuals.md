@@ -4,8 +4,6 @@
 
 ## 1) 구현 시퀀스
 
-가로 7칸(`LR`)은 슬라이드에서 글씨가 잘 작아지므로 **세로(`TB`) + `fontSize`** 로 바꿨습니다. (`init`을 지원하지 않는 뷰어는 [mermaid.live](https://mermaid.live)에서 PNG 내보내기.)
-
 ```mermaid
 %%{init: {'theme':'base', 'themeVariables': {'fontSize':'22px', 'fontFamily':'system-ui, sans-serif'}}}%%
 flowchart TB
