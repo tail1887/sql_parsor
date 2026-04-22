@@ -14,11 +14,17 @@ typedef struct {
     int queue_capacity; /* <=0 -> default */
 } Week8ApiServerConfig;
 
+typedef enum {
+    WEEK8_DISPATCH_POOL = 0,
+    WEEK8_DISPATCH_PER_REQUEST = 1
+} Week8DispatchMode;
+
 typedef struct Week8ApiServer {
     int listen_fd;
     uint16_t actual_port;
     volatile sig_atomic_t stop_requested;
     FILE *err;
+    Week8DispatchMode dispatch_mode;
     int worker_count;
     int queue_capacity;
     void **client_queue;

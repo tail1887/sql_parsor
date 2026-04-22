@@ -23,6 +23,17 @@ typedef struct RequestContext {
     struct RequestContext *next_all;
 } RequestContext;
 
+typedef struct {
+    RequestContext *ctx;
+} PerRequestThreadArg;
+
+static Week8DispatchMode resolve_dispatch_mode(void) {
+    const char *mode = getenv("W8_DISPATCH_MODE");
+    if (!mode) return WEEK8_DISPATCH_POOL;
+    if (strcmp(mode, "per_request") == 0) return WEEK8_DISPATCH_PER_REQUEST;
+    return WEEK8_DISPATCH_POOL;
+}
+
 static struct timespec now_realtime(void) {
     struct timespec ts;
     clock_gettime(CLOCK_REALTIME, &ts);
@@ -392,6 +403,68 @@ static int queue_pop(Week8ApiServer *server, RequestContext **ctx) {
     return 0;
 }
 
+static void *per_request_thread_loop(void *arg) {
+    PerRequestThreadArg *thread_arg = (PerRequestThreadArg *)arg;
+    if (!thread_arg) return NULL;
+    RequestContext *ctx = thread_arg->ctx;
+    if (ctx) {
+        handle_client(ctx->client_fd, ctx);
+        close(ctx->client_fd);
+        free(ctx);
+    }
+    free(thread_arg);
+    return NULL;
+}
+
+static int serve_per_request_mode(Week8ApiServer *server) {
+    while (!server->stop_requested) {
+        int client_fd = accept(server->listen_fd, NULL, NULL);
+        if (client_fd < 0) {
+            if (server->stop_requested) break;
+            if (errno == EINTR) continue;
+            fprintf(server->err, "week8 api: accept() failed\n");
+            return -1;
+        }
+
+        RequestContext *ctx = (RequestContext *)calloc(1, sizeof(RequestContext));
+        if (!ctx) {
+            send_json_response(client_fd,
+                               500,
+                               "Internal Server Error",
+                               "{\"ok\":false,\"error\":{\"code\":\"INTERNAL_ERROR\",\"message\":\"out of memory\",\"retryable\":false}}");
+            close(client_fd);
+            continue;
+        }
+        ctx->client_fd = client_fd;
+
+        PerRequestThreadArg *thread_arg = (PerRequestThreadArg *)calloc(1, sizeof(PerRequestThreadArg));
+        if (!thread_arg) {
+            send_json_response(client_fd,
+                               500,
+                               "Internal Server Error",
+                               "{\"ok\":false,\"error\":{\"code\":\"INTERNAL_ERROR\",\"message\":\"out of memory\",\"retryable\":false}}");
+            close(client_fd);
+            free(ctx);
+            continue;
+        }
+        thread_arg->ctx = ctx;
+
+        pthread_t tid;
+        if (pthread_create(&tid, NULL, per_request_thread_loop, thread_arg) != 0) {
+            send_json_response(client_fd,
+                               500,
+                               "Internal Server Error",
+                               "{\"ok\":false,\"error\":{\"code\":\"INTERNAL_ERROR\",\"message\":\"thread create failed\",\"retryable\":true}}");
+            close(client_fd);
+            free(ctx);
+            free(thread_arg);
+            continue;
+        }
+        (void)pthread_detach(tid);
+    }
+    return 0;
+}
+
 static void *worker_loop(void *arg) {
     Week8ApiServer *server = (Week8ApiServer *)arg;
     while (!server->stop_requested) {
@@ -553,6 +626,7 @@ int week8_api_server_init(Week8ApiServer *server, const Week8ApiServerConfig *co
     memset(server, 0, sizeof(*server));
     server->listen_fd = -1;
     server->err = err ? err : stderr;
+    server->dispatch_mode = resolve_dispatch_mode();
 
     const char *host = "127.0.0.1";
     uint16_t port = 0;
@@ -608,18 +682,23 @@ int week8_api_server_init(Week8ApiServer *server, const Week8ApiServerConfig *co
 
     server->listen_fd = fd;
     server->stop_requested = 0;
-    if (init_worker_pool(server) != 0) {
-        fprintf(server->err, "week8 api: worker pool init failed\n");
-        close(fd);
-        server->listen_fd = -1;
-        return -1;
+    if (server->dispatch_mode == WEEK8_DISPATCH_POOL) {
+        if (init_worker_pool(server) != 0) {
+            fprintf(server->err, "week8 api: worker pool init failed\n");
+            close(fd);
+            server->listen_fd = -1;
+            return -1;
+        }
+        server->pool_inited = 1;
     }
-    server->pool_inited = 1;
     return 0;
 }
 
 int week8_api_server_serve(Week8ApiServer *server) {
     if (!server || server->listen_fd < 0) return -1;
+    if (server->dispatch_mode == WEEK8_DISPATCH_PER_REQUEST) {
+        return serve_per_request_mode(server);
+    }
 
     while (!server->stop_requested) {
         int client_fd = accept(server->listen_fd, NULL, NULL);
@@ -664,8 +743,10 @@ int week8_api_server_serve(Week8ApiServer *server) {
 void week8_api_server_request_stop(Week8ApiServer *server) {
     if (!server) return;
     server->stop_requested = 1;
-    pthread_cond_broadcast(&server->queue_not_empty);
-    pthread_cond_broadcast(&server->registry_cv);
+    if (server->pool_inited) {
+        pthread_cond_broadcast(&server->queue_not_empty);
+        pthread_cond_broadcast(&server->registry_cv);
+    }
     if (server->listen_fd >= 0) {
         (void)shutdown(server->listen_fd, SHUT_RDWR);
         close(server->listen_fd);
