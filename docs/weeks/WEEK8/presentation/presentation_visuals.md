@@ -82,7 +82,7 @@ sequenceDiagram
 
 실제 테스트 결과 표:
 
-![02 throughput comparison](../../../../artifacts/week8/presentation_plotly/week8_plotly_02.png)
+![02 503 comparison](../../../../artifacts/week8/presentation_plotly/week8_plotly_02.png)
 
 | scenario | policy | throughput_mean | p95_mean | p99_mean | 503_mean | 504_mean | success_mean |
 | --- | --- | ---: | ---: | ---: | ---: | ---: | ---: |
@@ -94,8 +94,8 @@ sequenceDiagram
 | saturation | per_request | 19704.23 | 15.44 | 23.17 | 0.0000 | 0.0000 | 0.0000 |
 
 발표 포인트:
-- 이 표는 실제 테스트 결과이므로 그대로 사용한다.
-- 발표에서는 숫자를 전부 읽지 않고, `왜 Thread Pool 방식을 채택했는지`를 중심으로 설명한다.
+- 위 그래프는 throughput이 아니라 `503 비율` 비교다.
+- 발표에서는 숫자를 전부 읽지 않고, `왜 Thread Pool 방식이 backpressure를 더 분명하게 드러내는지`를 중심으로 설명한다.
 
 근거 파일:
 - `artifacts/week8/bench_02_deep/benchmark_results_02_deep.csv`
