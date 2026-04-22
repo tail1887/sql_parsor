@@ -6,6 +6,7 @@
 #include "parser.h"
 
 #include <ctype.h>
+#include <pthread.h>
 #include <stdlib.h>
 #include <string.h>
 
@@ -35,6 +36,45 @@ static const char *trim_end(const char *s, const char *end) {
     return end;
 }
 
+typedef struct {
+    char *table_name;
+    pthread_rwlock_t rwlock;
+} TableLockEntry;
+
+static pthread_mutex_t g_lock_registry_mu = PTHREAD_MUTEX_INITIALIZER;
+static TableLockEntry g_table_locks[64];
+static size_t g_table_lock_count = 0;
+
+static TableLockEntry *get_or_create_table_lock(const char *table_name) {
+    if (!table_name || table_name[0] == '\0') return NULL;
+    pthread_mutex_lock(&g_lock_registry_mu);
+    for (size_t i = 0; i < g_table_lock_count; ++i) {
+        if (strcmp(g_table_locks[i].table_name, table_name) == 0) {
+            pthread_mutex_unlock(&g_lock_registry_mu);
+            return &g_table_locks[i];
+        }
+    }
+    if (g_table_lock_count >= sizeof(g_table_locks) / sizeof(g_table_locks[0])) {
+        pthread_mutex_unlock(&g_lock_registry_mu);
+        return NULL;
+    }
+    TableLockEntry *entry = &g_table_locks[g_table_lock_count];
+    entry->table_name = strdup(table_name);
+    if (!entry->table_name) {
+        pthread_mutex_unlock(&g_lock_registry_mu);
+        return NULL;
+    }
+    if (pthread_rwlock_init(&entry->rwlock, NULL) != 0) {
+        free(entry->table_name);
+        entry->table_name = NULL;
+        pthread_mutex_unlock(&g_lock_registry_mu);
+        return NULL;
+    }
+    g_table_lock_count++;
+    pthread_mutex_unlock(&g_lock_registry_mu);
+    return entry;
+}
+
 static int execute_one_statement(const char *stmt, size_t len, FILE *out, FILE *err, size_t stmt_no) {
     const char *s = stmt;
     const char *e = stmt + len;
@@ -49,7 +89,14 @@ static int execute_one_statement(const char *stmt, size_t len, FILE *out, FILE *
 
     InsertStmt *ins = NULL;
     if (parser_parse_insert(&lex, &ins) == 0 && ins != NULL) {
+        TableLockEntry *lock_entry = get_or_create_table_lock(ins->table);
+        if (!lock_entry || pthread_rwlock_wrlock(&lock_entry->rwlock) != 0) {
+            ast_insert_stmt_free(ins);
+            fprintf(err, "exec error: statement %zu failed (LOCK INSERT)\n", stmt_no);
+            return 3;
+        }
         int rc = executor_execute_insert(ins);
+        (void)pthread_rwlock_unlock(&lock_entry->rwlock);
         ast_insert_stmt_free(ins);
         if (rc != 0) {
             fprintf(err, "exec error: statement %zu failed (INSERT)\n", stmt_no);
@@ -61,7 +108,14 @@ static int execute_one_statement(const char *stmt, size_t len, FILE *out, FILE *
     SelectStmt *sel = NULL;
     lexer_init(&lex, s, (size_t)(e - s));
     if (parser_parse_select(&lex, &sel) == 0 && sel != NULL) {
+        TableLockEntry *lock_entry = get_or_create_table_lock(sel->table);
+        if (!lock_entry || pthread_rwlock_rdlock(&lock_entry->rwlock) != 0) {
+            ast_select_stmt_free(sel);
+            fprintf(err, "exec error: statement %zu failed (LOCK SELECT)\n", stmt_no);
+            return 3;
+        }
         int rc = executor_execute_select(sel, out);
+        (void)pthread_rwlock_unlock(&lock_entry->rwlock);
         ast_select_stmt_free(sel);
         if (rc != 0) {
             fprintf(err, "exec error: statement %zu failed (SELECT)\n", stmt_no);
@@ -74,7 +128,7 @@ static int execute_one_statement(const char *stmt, size_t len, FILE *out, FILE *
     return 2;
 }
 
-static int run_sql_text(const char *sql, size_t len, FILE *out, FILE *err) {
+static int run_sql_text_len(const char *sql, size_t len, FILE *out, FILE *err) {
     size_t start = 0;
     int in_string = 0;
     size_t stmt_no = 0;
@@ -164,7 +218,15 @@ int sql_processor_run_file(const char *path, FILE *out, FILE *err) {
         return 3;
     }
 
-    int rc = run_sql_text(buf, n, out, err);
+    int rc = run_sql_text_len(buf, n, out, err);
     free(buf);
     return rc;
+}
+
+int sql_processor_run_text(const char *sql, FILE *out, FILE *err) {
+    if (!sql) {
+        fprintf(err, "io error: null sql text\n");
+        return 3;
+    }
+    return run_sql_text_len(sql, strlen(sql), out, err);
 }

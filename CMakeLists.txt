@@ -47,6 +47,10 @@ target_include_directories(sql_processor PRIVATE "${CMAKE_CURRENT_SOURCE_DIR}/in
 add_executable(sql_processor_trace src/main_trace.c src/sql_trace.c src/lexer.c src/parser.c src/ast.c src/csv_storage.c src/executor.c src/week7/bplus_tree.c src/week7/week7_index.c)
 target_include_directories(sql_processor_trace PRIVATE "${CMAKE_CURRENT_SOURCE_DIR}/include")
 
+# WEEK8: tiny API server bootstrap (W8-01)
+add_executable(week8_api_server src/week8/main_api_server.c src/week8/api_server.c src/week8/engine_bridge.c src/sql_processor.c src/executor.c src/csv_storage.c src/parser.c src/ast.c src/lexer.c src/week7/bplus_tree.c src/week7/week7_index.c)
+target_include_directories(week8_api_server PRIVATE "${CMAKE_CURRENT_SOURCE_DIR}/include")
+
 # CTest용 스모크 테스트 실행 파일 — tests/test_bootstrap.c 를 별도 타깃으로 빌드합니다.
 add_executable(test_bootstrap tests/test_bootstrap.c)
 
@@ -77,6 +81,15 @@ target_include_directories(test_data_integrity PRIVATE "${CMAKE_CURRENT_SOURCE_D
 # WEEK7: B+ tree unit tests (docs/weeks/WEEK7/implementation-order.md 단계 1)
 add_executable(test_bplus_tree tests/test_bplus_tree.c src/week7/bplus_tree.c)
 target_include_directories(test_bplus_tree PRIVATE "${CMAKE_CURRENT_SOURCE_DIR}/include")
+
+add_executable(test_week8_api_server tests/test_week8_api_server.c src/week8/api_server.c src/week8/engine_bridge.c src/sql_processor.c src/executor.c src/csv_storage.c src/parser.c src/ast.c src/lexer.c src/week7/bplus_tree.c src/week7/week7_index.c)
+target_include_directories(test_week8_api_server PRIVATE "${CMAKE_CURRENT_SOURCE_DIR}/include")
+
+add_executable(test_week8_engine_bridge tests/test_week8_engine_bridge.c src/week8/engine_bridge.c src/sql_processor.c src/executor.c src/csv_storage.c src/parser.c src/ast.c src/lexer.c src/week7/bplus_tree.c src/week7/week7_index.c)
+target_include_directories(test_week8_engine_bridge PRIVATE "${CMAKE_CURRENT_SOURCE_DIR}/include")
+
+add_executable(test_week8_locking tests/test_week8_locking.c src/sql_processor.c src/executor.c src/csv_storage.c src/parser.c src/ast.c src/lexer.c src/week7/bplus_tree.c src/week7/week7_index.c)
+target_include_directories(test_week8_locking PRIVATE "${CMAKE_CURRENT_SOURCE_DIR}/include")
 
 # WEEK7: 대량 벤치(CTest 미등록 — 로컬에서만 실행 권장)
 add_executable(bench_bplus src/bench_bplus.c src/week7/bplus_tree.c)
@@ -118,6 +131,10 @@ add_test(NAME executor_unit COMMAND $<TARGET_FILE:test_executor>)
 add_test(NAME main_integration COMMAND $<TARGET_FILE:test_main_integration>)
 add_test(NAME bplus_tree_unit COMMAND $<TARGET_FILE:test_bplus_tree>)
 add_test(NAME data_integrity_unit COMMAND $<TARGET_FILE:test_data_integrity>)
+add_test(NAME week8_api_server_unit COMMAND $<TARGET_FILE:test_week8_api_server>)
+add_test(NAME week8_engine_bridge_unit COMMAND $<TARGET_FILE:test_week8_engine_bridge>)
+add_test(NAME week8_locking_unit COMMAND $<TARGET_FILE:test_week8_locking>)
 
 set_tests_properties(bootstrap_smoke lexer_unit parser_insert_unit parser_select_unit csv_storage_unit executor_unit
-                     main_integration bplus_tree_unit data_integrity_unit PROPERTIES WORKING_DIRECTORY "${CMAKE_CURRENT_SOURCE_DIR}")
+                     main_integration bplus_tree_unit data_integrity_unit week8_api_server_unit week8_engine_bridge_unit week8_locking_unit
+                     PROPERTIES WORKING_DIRECTORY "${CMAKE_CURRENT_SOURCE_DIR}")
