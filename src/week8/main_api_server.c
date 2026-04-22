@@ -11,9 +11,23 @@ static void on_signal(int signo) {
     if (g_server) week8_api_server_request_stop(g_server);
 }
 
+static int env_int_or_default(const char *key, int default_value) {
+    const char *raw = getenv(key);
+    if (!raw || raw[0] == '\0') return default_value;
+    char *end = NULL;
+    long v = strtol(raw, &end, 10);
+    if (end == raw || *end != '\0') return default_value;
+    if (v < 1) return default_value;
+    if (v > 100000) return default_value;
+    return (int)v;
+}
+
 int main(void) {
     Week8ApiServer server;
-    Week8ApiServerConfig cfg = {.host = "127.0.0.1", .port = 8080};
+    Week8ApiServerConfig cfg = {.host = "127.0.0.1",
+                                .port = 8080,
+                                .worker_count = env_int_or_default("W8_WORKER_COUNT", 4),
+                                .queue_capacity = env_int_or_default("W8_QUEUE_CAPACITY", 64)};
 
     if (week8_api_server_init(&server, &cfg, stderr) != 0) {
         return EXIT_FAILURE;
