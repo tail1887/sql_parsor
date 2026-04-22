@@ -1,99 +1,92 @@
 # WEEK8 발표 비주얼 문서 (4분 발표용)
-## 1. 프로젝트 소개
-SQL 처리기와 CSV 저장소, 그리고 B+ 트리 인덱스를 그대로 재사용하면서, 외부 클라이언트가 HTTP API를 통해 DB 기능을 호출할 수 있도록 API 서버를 구현.
 
-## 2. 핵심 아키텍처 그림
-먼저 전체 구조를 한 번에 보여주는 그림입니다.
+## 1. 소개
+
+발표에서 먼저 전달할 핵심 문장:
+- 이번 주 과제는 **미니 DBMS API 서버 구현**이다.
+- 외부 클라이언트가 API를 통해 DBMS 기능을 사용할 수 있어야 한다.
+- 이전 주차의 SQL 처리기와 B+ 트리 인덱스를 그대로 재사용한다.
+
+짧게 보여줄 키워드:
+- `C`
+- `API Server`
+- `Thread Pool`
+- `SQL Engine Reuse`
+- `B+ Tree`
+
+## 2. 정의
+
+발표에서 정의할 핵심 포인트:
+- 멀티 스레드 동시성 이슈
+- 내부 DB 엔진과 외부 API 서버 사이 연결 설계
+- API 서버 아키텍처
+
+품질 기준:
+- 단위 테스트로 함수 검증
+- API 서버 기능 테스트
+- 엣지 케이스 고려
+- 포트폴리오 수준 완성도
+
+## 3. 아키텍쳐 및 흐름
 
 ```mermaid
 flowchart LR
-    client[Client]
-    router[API Router]
-    pool[Thread Pool + Queue]
-    bridge[Engine Bridge]
-    engine[Existing SQL Engine]
-    csv[CSV Storage]
-    bpt[B+ Tree Index]
+    client["External Client"]
+    api["API Server"]
+    queue["Job Queue"]
+    worker["Worker Thread"]
+    bridge["Engine Bridge"]
+    engine["Existing SQL Engine"]
+    csv["CSV Storage"]
+    bpt["B+ Tree Index"]
 
-    client --> router
-    router --> pool
-    pool --> bridge
+    client --> api
+    api --> queue
+    queue --> worker
+    worker --> bridge
     bridge --> engine
     engine --> csv
     engine --> bpt
 ```
 
-핵심 메시지:
-- 기존 SQL 엔진을 버리지 않고 그대로 재사용했다.
-- API 계층과 SQL 실행 계층을 분리했다.
-- 병렬 처리와 보호 정책은 Router와 Pool 경계에서 통제한다.
-
-## 3. 요청 처리 흐름 그림
-`/query` 요청이 실제로 어떻게 처리되는지 보여주는 흐름도입니다.
+발표할 때 말할 핵심:
+- 외부 요청은 API 서버가 받는다.
+- 병렬 처리는 Thread Pool과 Job Queue가 담당한다.
+- SQL 실행은 기존 엔진을 그대로 재사용한다.
 
 ```mermaid
 sequenceDiagram
     participant Client
-    participant Router
+    participant ApiServer
     participant JobQueue
     participant Worker
     participant EngineBridge
     participant SqlEngine
 
-    Client->>Router: POST /query
-    Router->>Router: 입력 검증
-    Router->>JobQueue: push(job)
-    JobQueue-->>Worker: pop()
-    Worker->>SqlEngine: execute(sql)
-    SqlEngine-->>EngineBridge: execution result
-    EngineBridge-->>Worker: normalized JSON result
-    Worker-->>Client: HTTP response
+    Client->>ApiServer: POST /query
+    ApiServer->>ApiServer: 요청 검증
+    ApiServer->>JobQueue: enqueue(job)
+    JobQueue-->>Worker: dequeue()
+    Worker->>EngineBridge: execute(sql)
+    EngineBridge->>SqlEngine: parse and execute
+    SqlEngine-->>EngineBridge: result
+    EngineBridge-->>Worker: normalized result
+    Worker-->>Client: HTTP JSON response
 ```
 
-핵심 메시지:
-- Router는 수락과 검증에 집중한다.
-- Queue와 Worker는 병렬 처리 상한을 관리한다.
-- Bridge는 응답 형식을 일관되게 만든다.
+## 4. 모듈별 방식과 성능 테스트
 
-## 4. 오류 의미와 보호 정책
-이 슬라이드는 “왜 503과 504를 나눴는가”를 짧게 설명할 때 사용합니다.
+### 4-1. 02 — Thread Pool 및 Job Queue
 
-```mermaid
-flowchart TD
-    req[Incoming Request] --> admit{queue 수용 가능?}
-    admit -->|no| busy[503 QUEUE_FULL]
-    admit -->|yes| run{deadline 내 완료?}
-    run -->|yes| ok[200 OK]
-    run -->|no| timeout[504 REQUEST_TIMEOUT]
-```
+비교 내용:
+- 방식 A: 고정 크기 스레드 풀 + bounded queue
+  - 장점: 메모리 상한 통제, 백프레셔 정책 명확
+  - 단점: 피크 시 거절 응답 필요
+- 방식 B: 요청당 스레드 생성
+  - 장점: 구현 직관적
+  - 단점: 컨텍스트 스위칭/생성 비용 큼, 폭주 위험
 
-핵심 메시지:
-- `503`은 아예 수용하지 못한 요청이다.
-- `504`는 수용은 했지만 시간 안에 끝내지 못한 요청이다.
-- 실패를 구분하면 운영 중 해석과 재시도 정책도 달라질 수 있다.
-
-## 5. 비교 섹션 시각화 원칙
-비교 슬라이드는 숫자를 많이 읽는 용도가 아니라, **실측을 근거로 선택 이유를 설명하는 용도**로 씁니다.
-
-고정 지표:
-- `throughput`
-- `p95 latency`
-- `503/504 비율`
-
-고정 실험 조건:
-- 동일 머신, 동일 빌드, 동일 데이터셋
-- 동일 요청 수와 동일 시나리오
-- 각 케이스 3회 이상 반복
-
-발표 중 한 줄 요약:
-- “이번 실측은 가장 빠른 방식 하나를 고르는 게 아니라, 부하 상황에서도 설명 가능한 정책을 찾기 위한 비교입니다.”
-
-## 6. 02 비교 그래프 블록 (실측 표 유지)
-비교 대상:
-- A: 고정 스레드풀 + bounded queue
-- B: 요청당 스레드 생성
-
-이 표는 발표에서 전부 읽지는 않더라도, **실제로 테스트해서 검증한 근거 자료**이기 때문에 유지합니다.
+실제 테스트 결과 표:
 
 | scenario | policy | throughput_mean | p95_mean | p99_mean | 503_mean | 504_mean | success_mean |
 | --- | --- | ---: | ---: | ---: | ---: | ---: | ---: |
@@ -104,21 +97,25 @@ flowchart TD
 | saturation | pool | 16594.96 | 25.47 | 34.55 | 0.2428 | 0.0000 | 0.0563 |
 | saturation | per_request | 19704.23 | 15.44 | 23.17 | 0.0000 | 0.0000 | 0.0000 |
 
-발표용 요약:
-- 단순 `/health` 중심 워크로드에서는 per-request가 throughput과 일부 지연 지표에서 더 높게 나왔습니다.
-- 하지만 pool 방식은 bounded queue를 통해 서버가 감당 가능한 상한을 분명히 둘 수 있다는 점이 중요합니다.
-- 그래서 이 표는 “누가 더 빠른가”만 보는 자료가 아니라, 어떤 정책을 선택했는지 설명하는 근거입니다.
+발표 포인트:
+- 이 표는 실제 테스트 결과이므로 그대로 사용한다.
+- 발표에서는 숫자를 전부 읽지 않고, `왜 Thread Pool 방식을 채택했는지`를 중심으로 설명한다.
 
 근거 파일:
 - `artifacts/week8/bench_02_deep/benchmark_results_02_deep.csv`
 - `artifacts/week8/bench_02_deep/summary_02_deep.md`
 
-## 7. 06 비교 그래프 블록 (실측 표 유지)
-비교 대상:
-- A: 고정 timeout + queue full 즉시 거절
-- B: 동적 timeout (큐 길이 기반)
+### 4-2. 06 — 타임아웃, 백프레셔, 요청 취소 정책
 
-이 표도 발표에서 숫자를 다 읽기 위한 용도가 아니라, **보호 정책 선택을 실제로 검증한 자료**로 남깁니다.
+비교 내용:
+- 방식 A: 고정 timeout + 큐 full 즉시 거절
+  - 장점: 구현 단순, 시스템 보호 확실
+  - 단점: 요청 성공률 저하 가능
+- 방식 B: 동적 timeout(큐 길이 기반)
+  - 장점: 상황 적응형
+  - 단점: 정책 복잡, 예측성 낮음
+
+실제 테스트 결과 표:
 
 | scenario | policy | throughput_mean | p95_mean | p99_mean | 503_mean | 504_mean | success_mean |
 | --- | --- | ---: | ---: | ---: | ---: | ---: | ---: |
@@ -129,26 +126,33 @@ flowchart TD
 | saturation | dynamic | 18802.88 | 13.27 | 21.65 | 0.0936 | 0.0000 | 0.0314 |
 | saturation | fixed | 13841.98 | 27.24 | 35.60 | 0.3200 | 0.2959 | 0.0089 |
 
-발표용 요약:
-- 고부하 구간에서는 dynamic timeout이 더 안정적인 지연과 낮은 timeout 손실을 보였습니다.
-- fixed timeout은 단순하고 설명하기 쉽지만, saturation 구간에서는 503과 504 비율이 더 높게 나타났습니다.
-- 그래서 이 표는 성능 비교이면서 동시에 실패를 어떤 정책으로 드러낼 것인지 보여주는 자료입니다.
+발표 포인트:
+- 이 표도 실제 테스트 결과이므로 그대로 사용한다.
+- 발표에서는 `고정 정책`과 `동적 정책`의 차이를 설명하고, 과부하 상황에서 어떤 정책이 더 설명 가능한지에 초점을 둔다.
 
 근거 파일:
 - `artifacts/week8/bench_06/benchmark_results_06.csv`
 - `artifacts/week8/bench_06/summary_06.md`
 
-## 8. 시연 체크리스트
+## 5. 수요코딩회 요구사항 시연
 
-| 항목 | 확인 포인트 | 기대 결과 |
+시연 순서:
+- `GET /health`
+- `POST /query`
+- 동시 요청으로 병렬 처리 확인
+- 과부하 또는 timeout 상황 확인
+
+시연 체크리스트:
+
+| 항목 | 시연 내용 | 기대 결과 |
 | --- | --- | --- |
-| 상태 확인 | `/health` | 200 OK |
-| 기능 확인 | `/query` 정상 SQL | 200 OK |
-| 과부하 확인 | burst 요청 | 503 |
-| timeout 확인 | long request | 504 |
+| 기능 | `GET /health` | 200 OK |
+| 기능 | `POST /query`로 SELECT/INSERT | 200 OK |
+| 병렬 처리 | 동시 요청 전송 | Thread Pool 기반 처리 확인 |
+| 보호 정책 | queue full 또는 timeout 상황 | 503 / 504 확인 |
+| 품질 | 테스트 근거 제시 | 요구사항 검증 설명 |
 
-발표 중 한 줄:
-- “시연의 목적은 한 번 예쁘게 성공하는 것이 아니라, 정책이 실제로 재현 가능하게 동작하는 것을 보여주는 것입니다.”
-
-## 9. 발표 마무리 한 줄
-- “WEEK8의 핵심은 기존 SQL 엔진을 API 서버로 확장하고, 병렬 처리와 보호 정책까지 포함해 설명 가능한 시스템으로 만든 것입니다.”
+같이 언급할 테스트 파일:
+- `tests/test_week8_engine_bridge.c`
+- `tests/test_week8_api_server.c`
+- `tests/test_week8_locking.c`
