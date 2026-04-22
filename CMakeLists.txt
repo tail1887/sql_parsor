@@ -30,6 +30,36 @@ set(CMAKE_C_STANDARD_REQUIRED ON)
 # OFF 는 “확장을 끄고 ISO C11 에 가깝게 맞춰라”에 가깝습니다. 이식성과 예측 가능한 동작을 위해 둡니다.
 set(CMAKE_C_EXTENSIONS OFF)
 
+find_package(Threads REQUIRED)
+
+set(SQL_CORE_SOURCES
+    src/sql_processor.c
+    src/sql_result.c
+    src/lexer.c
+    src/parser.c
+    src/ast.c
+    src/csv_storage.c
+    src/executor.c
+    src/week7/bplus_tree.c
+    src/week7/week7_index.c)
+
+set(SQL_TRACE_SOURCES
+    src/sql_trace.c
+    src/sql_result.c
+    src/lexer.c
+    src/parser.c
+    src/ast.c
+    src/csv_storage.c
+    src/executor.c
+    src/week7/bplus_tree.c
+    src/week7/week7_index.c)
+
+set(API_SERVER_SOURCES
+    src/api_server.c
+    src/engine_adapter.c
+    src/http_parser.c
+    src/response_builder.c)
+
 # ------------------------------------------------------------------------------
 # 2. 실행 파일 생성 및 경로 설정
 #    소스를 컴파일·링크하여 실행 파일을 만듭니다.
@@ -37,15 +67,19 @@ set(CMAKE_C_EXTENSIONS OFF)
 
 # [add_executable] 지정한 .c 들을 컴파일·링크해 “실행 파일 타깃” 하나를 만듭니다.
 # 산출물은 빌드 트리(예: build/) 아래에 생성됩니다.
-add_executable(sql_processor src/main.c src/sql_processor.c src/lexer.c src/parser.c src/ast.c src/csv_storage.c src/executor.c src/week7/bplus_tree.c src/week7/week7_index.c)
+add_executable(sql_processor src/main.c ${SQL_CORE_SOURCES})
 
 # [target_include_directories] 이 타깃을 컴파일할 때만 헤더 검색 경로(-I)에 넣습니다.
 # PRIVATE: 이 타깃 빌드에만 쓰이고 다른 타깃에 전파하지 않음(sql_processor 전용).
 target_include_directories(sql_processor PRIVATE "${CMAKE_CURRENT_SOURCE_DIR}/include")
 
 # 데모용 trace 실행 파일: 표준 실행 + 단계별 JSONL 추적 출력.
-add_executable(sql_processor_trace src/main_trace.c src/sql_trace.c src/lexer.c src/parser.c src/ast.c src/csv_storage.c src/executor.c src/week7/bplus_tree.c src/week7/week7_index.c)
+add_executable(sql_processor_trace src/main_trace.c ${SQL_TRACE_SOURCES})
 target_include_directories(sql_processor_trace PRIVATE "${CMAKE_CURRENT_SOURCE_DIR}/include")
+
+add_executable(sql_api_server src/main_api_server.c ${API_SERVER_SOURCES} ${SQL_CORE_SOURCES})
+target_include_directories(sql_api_server PRIVATE "${CMAKE_CURRENT_SOURCE_DIR}/include")
+target_link_libraries(sql_api_server PRIVATE Threads::Threads)
 
 # CTest용 스모크 테스트 실행 파일 — tests/test_bootstrap.c 를 별도 타깃으로 빌드합니다.
 add_executable(test_bootstrap tests/test_bootstrap.c)
@@ -65,14 +99,27 @@ target_include_directories(test_parser_select PRIVATE "${CMAKE_CURRENT_SOURCE_DI
 add_executable(test_csv_storage tests/test_csv_storage.c src/csv_storage.c src/ast.c)
 target_include_directories(test_csv_storage PRIVATE "${CMAKE_CURRENT_SOURCE_DIR}/include")
 
-add_executable(test_executor tests/test_executor.c src/executor.c src/csv_storage.c src/parser.c src/ast.c src/lexer.c src/week7/bplus_tree.c src/week7/week7_index.c)
+add_executable(test_executor tests/test_executor.c src/executor.c src/sql_result.c src/csv_storage.c src/parser.c
+                             src/ast.c src/lexer.c src/week7/bplus_tree.c src/week7/week7_index.c)
 target_include_directories(test_executor PRIVATE "${CMAKE_CURRENT_SOURCE_DIR}/include")
 
-add_executable(test_main_integration tests/test_main_integration.c src/sql_processor.c src/executor.c src/csv_storage.c src/parser.c src/ast.c src/lexer.c src/week7/bplus_tree.c src/week7/week7_index.c)
+add_executable(test_main_integration tests/test_main_integration.c ${SQL_CORE_SOURCES})
 target_include_directories(test_main_integration PRIVATE "${CMAKE_CURRENT_SOURCE_DIR}/include")
 
-add_executable(test_data_integrity tests/test_data_integrity.c src/executor.c src/csv_storage.c src/parser.c src/ast.c src/lexer.c src/week7/bplus_tree.c src/week7/week7_index.c)
+add_executable(test_data_integrity tests/test_data_integrity.c src/executor.c src/sql_result.c src/csv_storage.c
+                                   src/parser.c src/ast.c src/lexer.c src/week7/bplus_tree.c
+                                   src/week7/week7_index.c)
 target_include_directories(test_data_integrity PRIVATE "${CMAKE_CURRENT_SOURCE_DIR}/include")
+
+add_executable(test_sql_processor_api tests/test_sql_processor_api.c ${SQL_CORE_SOURCES})
+target_include_directories(test_sql_processor_api PRIVATE "${CMAKE_CURRENT_SOURCE_DIR}/include")
+
+add_executable(test_http_parser tests/test_http_parser.c src/http_parser.c)
+target_include_directories(test_http_parser PRIVATE "${CMAKE_CURRENT_SOURCE_DIR}/include")
+
+add_executable(test_api_server tests/test_api_server.c ${API_SERVER_SOURCES} ${SQL_CORE_SOURCES})
+target_include_directories(test_api_server PRIVATE "${CMAKE_CURRENT_SOURCE_DIR}/include")
+target_link_libraries(test_api_server PRIVATE Threads::Threads)
 
 # WEEK7: B+ tree unit tests (docs/weeks/WEEK7/implementation-order.md 단계 1)
 add_executable(test_bplus_tree tests/test_bplus_tree.c src/week7/bplus_tree.c)
@@ -118,6 +165,11 @@ add_test(NAME executor_unit COMMAND $<TARGET_FILE:test_executor>)
 add_test(NAME main_integration COMMAND $<TARGET_FILE:test_main_integration>)
 add_test(NAME bplus_tree_unit COMMAND $<TARGET_FILE:test_bplus_tree>)
 add_test(NAME data_integrity_unit COMMAND $<TARGET_FILE:test_data_integrity>)
+add_test(NAME sql_processor_api_unit COMMAND $<TARGET_FILE:test_sql_processor_api>)
+add_test(NAME http_parser_unit COMMAND $<TARGET_FILE:test_http_parser>)
+add_test(NAME api_server_integration COMMAND $<TARGET_FILE:test_api_server>)
 
 set_tests_properties(bootstrap_smoke lexer_unit parser_insert_unit parser_select_unit csv_storage_unit executor_unit
-                     main_integration bplus_tree_unit data_integrity_unit PROPERTIES WORKING_DIRECTORY "${CMAKE_CURRENT_SOURCE_DIR}")
+                     main_integration bplus_tree_unit data_integrity_unit sql_processor_api_unit
+                     http_parser_unit api_server_integration PROPERTIES WORKING_DIRECTORY
+                     "${CMAKE_CURRENT_SOURCE_DIR}")

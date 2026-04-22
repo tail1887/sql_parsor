@@ -1,6 +1,6 @@
 # sql_parsor
 
-**sql_parsor**는 텍스트 SQL 파일을 CLI로 받아 **INSERT / SELECT** 를 파싱·실행하고, **테이블당 CSV 파일**에 저장·조회하는 **C 기반 SQL 처리기** 프로젝트입니다.
+**sql_parsor**는 텍스트 SQL 파일을 CLI로 받아 **INSERT / SELECT** 를 파싱·실행하고, **테이블당 CSV 파일**에 저장·조회하는 **C 기반 SQL 처리기** 프로젝트입니다. 같은 엔진을 재사용하는 **C 기반 HTTP API 서버**(`sql_api_server`)도 함께 제공합니다.
 
 ## 프로젝트 소개
 
@@ -19,6 +19,7 @@
 ## 핵심 기능
 
 - SQL 스크립트 파일을 인자로 받는 **CLI** (`sql_processor <path.sql>`)
+- JSON body의 SQL 문자열을 실행하는 **HTTP API 서버** (`POST /query`)
 - **INSERT INTO … VALUES** — CSV 파일에 행 추가
 - **SELECT … FROM** — CSV에서 읽어 **stdout** 출력 (포맷은 `docs/03-api-reference.md` 기준)
 - **WEEK7**: CSV 첫 컬럼이 `id` 이면 **자동 증가 PK** + 메모리 **B+ 트리 인덱스**; `SELECT … WHERE id = <정수>` 는 인덱스 룩업(그 외 SELECT는 전체 스캔)
@@ -48,8 +49,8 @@ usage: sql_processor <path.sql>
 
 자세한 내용은 `docs/02-architecture.md` 를 참고합니다.
 
-- 클라이언트: 없음 (CLI만)
-- 코어: C — Lexer → Parser → Executor → CSV Storage
+- 클라이언트: CLI + HTTP client
+- 코어: C — API Server/CLI → Lexer → Parser → Executor → CSV Storage
 - 데이터 저장소: `data/<table>.csv` (테이블당 파일)
 - 인증 / 상태 관리: 없음
 - 배포 방식: 소스 빌드 (로컬)
@@ -57,7 +58,10 @@ usage: sql_processor <path.sql>
 ```mermaid
 flowchart LR
     SqlFile[SqlFile] --> CLI[CLI]
+    Client[HTTP Client] --> Api[API Server]
+    Api --> Adapter[Engine Adapter]
     CLI --> Lexer[Lexer]
+    Adapter --> Lexer
     Lexer --> Parser[Parser]
     Parser --> AST[StmtAST]
     AST --> Exec[Executor]
@@ -147,13 +151,34 @@ Windows PowerShell 예:
 
 현재 구현은 `INSERT`/`SELECT`를 실제로 파싱·실행합니다. `sample.sql`과 `data/`를 맞춰 실행하면 SELECT 결과가 stdout(TSV)으로 출력됩니다.
 
-### 3) 테스트
+### 3) API 서버 실행
+
+```bash
+./build/sql_api_server 8080 4
+```
+
+다른 터미널에서:
+
+```bash
+curl -i http://127.0.0.1:8080/query \
+  -H 'Content-Type: application/json' \
+  -d '{"sql":"SELECT * FROM users;"}'
+```
+
+- 성공 SELECT: `columns`, `rows`, `message`
+- 성공 INSERT: `affectedRows`, `message`
+- 엔진 오류: HTTP `200` + body `status: "error"`
+- 잘못된 요청: `400/404/405`, queue 포화: `503`
+
+자세한 계약은 `docs/api-server-layer-spec.md` 를 참고합니다.
+
+### 4) 테스트
 
 ```bash
 ctest --test-dir build --output-on-failure
 ```
 
-### 4) 실시간 데모 페이지 (Node + Express)
+### 5) 실시간 데모 페이지 (Node + Express)
 
 `Step 1~5(SQL 입력 → Lexer → Parser(AST) → Executor → 결과)`를 브라우저에서 확인할 수 있습니다. 상단 메뉴에서 **Week 6**(MVP 파이프라인)과 **Week 7**(`docs/weeks/WEEK7/learning-guide.md` 의 **단계 1~7**별 실습·프리셋·터미널 안내) 페이지를 나눠 둡니다.
 
@@ -181,6 +206,7 @@ npm start
 - [기획 문서](docs/01-product-planning.md)
 - [아키텍처 문서](docs/02-architecture.md)
 - [CLI·SQL 계약](docs/03-api-reference.md)
+- [API 서버 계약](docs/api-server-layer-spec.md)
 - [개발 가이드](docs/04-development-guide.md)
 - [주차별 보조 문서](docs/weeks/README.md) — WEEK6 학습 가이드, WEEK7 B+ 트리 과제 틀 등 (스펙 아님)
 - [템플릿 사용법](00-how-to-use-this-template.md)
@@ -193,20 +219,31 @@ sql_parsor/
 ├─ CMakeLists.txt
 ├─ README.md
 ├─ include/
+│  ├─ api_server.h
 │  ├─ ast.h
 │  ├─ csv_storage.h
+│  ├─ engine_adapter.h
 │  ├─ executor.h
+│  ├─ http_parser.h
 │  ├─ lexer.h
 │  ├─ parser.h
+│  ├─ response_builder.h
+│  ├─ sql_result.h
 │  └─ sql_processor.h
 ├─ src/
+│  ├─ api_server.c
 │  ├─ ast.c
 │  ├─ csv_storage.c
+│  ├─ engine_adapter.c
 │  ├─ executor.c
+│  ├─ http_parser.c
 │  ├─ lexer.c
 │  ├─ main.c
+│  ├─ main_api_server.c
 │  ├─ main_trace.c
 │  ├─ parser.c
+│  ├─ response_builder.c
+│  ├─ sql_result.c
 │  ├─ sql_processor.c
 │  └─ sql_trace.c
 ├─ demo/
@@ -222,13 +259,16 @@ sql_parsor/
 │     ├─ week7.html
 │     └─ styles.css
 ├─ tests/
+│  ├─ test_api_server.c
 │  ├─ test_bootstrap.c
 │  ├─ test_csv_storage.c
 │  ├─ test_executor.c
+│  ├─ test_http_parser.c
 │  ├─ test_lexer.c
 │  ├─ test_main_integration.c
 │  ├─ test_parser_insert.c
 │  ├─ test_parser_select.c
+│  ├─ test_sql_processor_api.c
 │  └─ sql/
 ├─ data/
 │  └─ users.csv
@@ -238,6 +278,7 @@ sql_parsor/
    ├─ 02-architecture.md
    ├─ 03-api-reference.md
    ├─ 04-development-guide.md
+   ├─ api-server-layer-spec.md
    └─ weeks/
       ├─ README.md
       ├─ WEEK6/
@@ -288,4 +329,3 @@ sql_parsor/
 - 단위·통합 테스트 전략이 `docs/04-development-guide.md` 대로 동작한다.
 - README 데모 시나리오와 실제 명령·출력이 어긋나지 않는다.
 - `AGENTS.md` 의 빌드·테스트 명령이 README Quick Start 와 **충돌하지 않는다**.
-

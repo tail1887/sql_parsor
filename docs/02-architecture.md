@@ -18,6 +18,12 @@ MVP 범위는 `docs/01-product-planning.md`를 따른다.
 ```mermaid
 flowchart LR
     SqlFile[SqlFile] --> CLI[CLI_main]
+    Client[HTTP_Client] --> Api[API_Server]
+    Api --> Queue[Task_Queue]
+    Queue --> Pool[Thread_Pool]
+    Pool --> Adapter[Engine_Adapter]
+    Adapter --> Lock[Global_DB_Mutex]
+    Lock --> Lexer[Lexer]
     CLI --> Lexer[Lexer]
     Lexer --> Parser[Parser]
     Parser --> AST[StmtAST]
@@ -26,6 +32,7 @@ flowchart LR
     Store --> FS[(data_table_csv)]
     Exec --> Idx[Week7_BplusIndex]
     Exec --> Out[Stdout]
+    Api --> Json[JSON_Response]
 ```
 
 
@@ -33,9 +40,11 @@ flowchart LR
 설명:
 
 - **CLI**: 인자로 받은 `.sql` 파일을 읽어 **문장 단위**로 파서에 넘긴다.
+- **API Server**: `POST /query` 요청을 받아 작업 큐에 넣고, worker가 결과를 JSON으로 응답한다.
+- **Engine Adapter**: API 서버와 기존 SQL 엔진 사이의 얇은 접점이다. 엔진 호출 전체를 **전역 mutex** 로 감싼다.
 - **Lexer**: 문자 스트림을 토큰 스트림으로 변환한다.
 - **Parser**: 토큰에서 **INSERT** / **SELECT** 구문 트리를 만든다.
-- **Executor**: AST를 해석해 Storage를 호출하고, SELECT 결과를 stdout에 포맷한다.
+- **Executor**: AST를 해석해 Storage를 호출하고, SELECT 결과를 **구조화 결과 + TSV 렌더링**으로 공용화한다.
 - **Storage**: 논리 테이블명을 물리 경로로 매핑해 **fopen / append / read** 한다.
 - **Week7_BplusIndex**: CSV 헤더 첫 컬럼이 `id`인 테이블에 한해, 프로세스 메모리 B+ 트리로 PK 룩업·자동 증가 `id`를 지원한다(상세는 `docs/weeks/WEEK7/sequences.md`).
 
@@ -45,17 +54,28 @@ flowchart LR
 
 ```text
 include/
+├─ api_server.h
+├─ engine_adapter.h
 ├─ lexer.h
 ├─ parser.h
 ├─ ast.h
 ├─ executor.h
+├─ http_parser.h
+├─ response_builder.h
+├─ sql_processor.h
 └─ csv_storage.h
 src/
+├─ api_server.c
+├─ engine_adapter.c
 ├─ main.c
+├─ main_api_server.c
 ├─ lexer.c
 ├─ parser.c
 ├─ ast.c
 ├─ executor.c
+├─ http_parser.c
+├─ response_builder.c
+├─ sql_processor.c
 └─ csv_storage.c
 tests/
 ├─ test_lexer.c
@@ -69,9 +89,15 @@ data/
 책임:
 
 - **main.c**: 인자 검증, 파일 읽기, 문장 루프, 종료 코드
+- **main_api_server.c**: `sql_api_server [port] [workers]` 인자 처리, 시그널 종료 처리
+- **api_server.c**: `accept -> bounded queue -> worker pool` 관리, HTTP 응답 전송
+- **http_parser.c**: HTTP request line / header / `Content-Length` / JSON body 파싱
+- **response_builder.c**: 엔진 결과를 JSON body + HTTP 응답 문자열로 변환
+- **engine_adapter.c**: 엔진 호출 mutex 보호
 - **lexer.c**: 토큰화만 (키워드 대소문자 정책은 `docs/03-api-reference.md`)
 - **parser.c**: 구문 분석만
 - **executor.c**: “무엇을 할지” — INSERT/SELECT 의미
+- **sql_processor.c**: CLI용 스크립트 실행 + API용 단일 문장 실행 진입점
 - **csv_storage.c**: “파일에 어떻게 쓰고 읽을지” — 경로, 인코딩 가정, 이스케이프
 
 ## 4) 데이터 모델
@@ -102,7 +128,9 @@ data/
 - **파일 없음 + INSERT**: `data/<table>.csv` 가 없으면 **에러**(테이블은 사전 존재 가정). (구현 편의상 자동 생성으로 바꿀 경우 문서·테스트 동시 수정.)
 - **파일 없음 + SELECT**: 에러.
 - **빈 데이터(헤더만)**: SELECT 는 헤더만 또는 0행 출력 — 동작을 `docs/03-api-reference.md`에 맞출 것.
-- **동시 실행**: MVP 에서는 **단일 프로세스** 가정. 파일 잠금은 문서화만 하고 생략 가능.
+- **API 요청 단위**: HTTP 연결 하나당 요청 하나만 처리하고 응답 후 연결을 닫는다. `Content-Length`만 지원하고 chunked / keep-alive 는 지원하지 않는다.
+- **동시 실행**: API 서버는 여러 worker를 두되, 첫 제출에서는 **엔진 호출 전체를 전역 mutex 로 직렬화** 한다. CSV 파일과 WEEK7 인덱스가 전역/파일 기반이기 때문이다.
+- **큐 포화 시**: bounded queue 가 가득 차면 해당 요청은 즉시 `503 Service Unavailable` 로 거절한다.
 
 ## 6) 핵심 시퀀스
 
@@ -154,10 +182,33 @@ B+ 트리·자동 `id`·`WHERE id = …` 가 붙은 뒤의 **INSERT / SELECT(인
 - **파일**: `[docs/weeks/WEEK7/sequences.md](weeks/WEEK7/sequences.md)`
 - **갱신 시점**: 인덱스 삽입 시점, 룩업 실패 시 정책, `read_all` 대신 부분 읽기 API 등이 코드에 반영될 때마다 위 파일과 필요 시 `docs/03-api-reference.md`를 함께 맞춘다.
 
+### 6.4 WEEK8 — API 서버 요청
+
+```mermaid
+sequenceDiagram
+    participant C as Client
+    participant A as accept_thread
+    participant Q as task_queue
+    participant W as worker
+    participant D as engine_adapter
+    participant E as sql_processor
+
+    C->>A: POST /query
+    A->>Q: enqueue(socket fd)
+    Q-->>W: dequeue(socket fd)
+    W->>D: execute_sql(sql)
+    D->>E: sql_processor_run_text(sql)
+    E-->>D: SqlExecutionResult
+    D-->>W: result
+    W-->>C: HTTP/1.1 + JSON
+```
+
 ## 7) 운영·실행 메모
 
 - **빌드 산출물**: CMake 기본 빌드 트리 `build/` (gitignore 권장).
+- **실행 파일**: `sql_processor`, `sql_processor_trace`, `sql_api_server`
 - **Windows**: Visual Studio 생성기 사용 시 실행 파일이 `build/Debug/sql_processor.exe` 또는 `build/Release/sql_processor.exe` 일 수 있다. README에 **두 경우**를 명시한다.
+- **API 서버 기본값**: 포트 `8080`, worker `4`, bounded queue(기본 64)
 - **환경 변수**: MVP 에서 필수 아님.
 - **로깅**: stderr 에 human-readable 메시지로 충분.
 
@@ -167,4 +218,3 @@ B+ 트리·자동 `id`·`WHERE id = …` 가 붙은 뒤의 **INSERT / SELECT(인
 - CSV rows that contain only whitespace are ignored consistently by csv_storage_read_table, csv_storage_read_table_row, and csv_storage_data_row_count.
 - For WEEK7 tables whose first header column is id, each stored id must be a strict integer string. Extra trailing characters or whitespace inside the stored field are treated as corrupted data.
 - Duplicate stored id values in a WEEK7 id PK table are treated as corrupted data. Index loading fails instead of silently replacing an earlier row reference.
-

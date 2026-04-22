@@ -58,6 +58,18 @@ SQL 처리기에 맞춘 예시 브랜치 분리:
 9. 단위·통합 테스트 보강
 10. README 발표용 다듬기
 
+## 3-1) WEEK8 API 서버 구현 순서
+
+기존 엔진 위에 서버를 붙일 때는 아래 순서를 권장한다.
+
+1. `sql_processor_run_text` + `SqlExecutionResult` 로 **단일 문장 구조화 결과** 노출
+2. `executor` 에서 SELECT 결과를 **구조체 + TSV 렌더링** 으로 분리
+3. `http_parser` 로 request line / header / JSON body 파싱
+4. `response_builder` 로 엔진 결과 → JSON / HTTP 응답 생성
+5. `engine_adapter` 로 전역 mutex 보호
+6. `api_server` 로 `accept -> queue -> worker pool` 완성
+7. `sql_api_server` 실행 파일, 서버 테스트, 문서 갱신
+
 ## 4) Codex / AI 태스크 요청 방식
 
 좋은 요청 예시:
@@ -78,6 +90,9 @@ SQL 처리기에 맞춘 예시 브랜치 분리:
 - Lexer: 식별자, 숫자, 문자열, 따옴표 이스케이프, 주석, 세미콜론
 - Parser: INSERT/SELECT 성공·실패 입력
 - csv_storage: 한 줄 직렬화/역직렬화, 컬럼 수 검증
+- `sql_processor_run_text`: 단일 문장 제약, `SqlExecutionResult` 메모리/메시지
+- `http_parser`: request line, `Content-Length`, JSON `sql` 추출
+- `response_builder`: SELECT/INSERT/error JSON 렌더링
 
 ### 통합(기능) 테스트
 
@@ -93,12 +108,14 @@ SQL 처리기에 맞춘 예시 브랜치 분리:
 - 구문 오류 시 비제로 exit code
 - 테이블 파일 없음 / 컬럼 수 불일치
 - 문서(`docs/03-api-reference.md`)와 출력·exit code 동기화
+- API 서버의 `POST /query` 가 SELECT/INSERT/오류/queue full 을 기대대로 반환하는지
 
 ## 6) PR 체크리스트
 
 - 변경 목적이 명확하다
 - 테스트를 추가했거나 기존 테스트가 통과한다
 - parser 동작·CLI·저장 포맷이 바뀌면 `docs/03-api-reference.md` 또는 `docs/02-architecture.md` 를 갱신했다
+- HTTP 계약이나 thread pool/queue 동작이 바뀌면 `docs/api-server-layer-spec.md` 를 갱신했다
 - 리뷰어가 이해할 수 있게 범위를 설명했다
 - `main` 직접 push 없이 PR로만 머지한다
 - PR의 CI가 통과한 뒤에만 머지한다
@@ -128,12 +145,20 @@ SQL 처리기에 맞춘 예시 브랜치 분리:
 - 통합 테스트·README 데모 시나리오 동기화
 - (선택) Stretch WHERE
 
+### Milestone 4. API 서버
+
+- `sql_api_server` 실행 파일
+- `POST /query` JSON 응답
+- bounded queue + worker pool + 전역 mutex
+- HTTP 통합 테스트와 문서 동기화
+
 ## 8) 로컬 명령 참고
 
 프로젝트 루트에서:
 
 - 설정 및 빌드: `cmake -S . -B build && cmake --build build`
 - 테스트: `ctest --test-dir build --output-on-failure`
+- API 서버 실행: `./build/sql_api_server 8080 4`
 - 포맷(선택): `clang-format -i src/*.c include/*.h tests/*.c`
 
 실행 파일 경로는 `README.md` 의 Quick Start 를 따른다.
