@@ -29,7 +29,7 @@ bash docs/weeks/WEEK8/presentation/demo/01_normal_query.command
 - `HTTP 200`
 - 응답 JSON에 `ok:true`
 
-## 4) 과부하(Backpressure) 시연
+## 4) 보호 정책 통합 시연 (503 + 504)
 
 ```bash
 bash docs/weeks/WEEK8/presentation/demo/02_overload.command
@@ -37,19 +37,13 @@ bash docs/weeks/WEEK8/presentation/demo/02_overload.command
 
 기대 결과:
 - 결과에 `error_503_ratio > 0`
-- `QUEUE_FULL` 계열 오류 관찰
-
-## 5) Timeout/Cancellation 시연
-
-```bash
-bash docs/weeks/WEEK8/presentation/demo/03_timeout.command
-```
-
-기대 결과:
 - 결과에 `error_504_ratio > 0`
-- timeout/cancellation 경로 동작 확인
+- `503` 의미: 큐가 꽉 차서 즉시 거절(Backpressure)
+- `504` 의미: 처리 중 시간 제한 초과(Timeout/Cancellation)
 
-## 6) 서버 종료
+즉, 서버가 과부하 상황에서 무너지지 않고 "통제된 실패"를 한다는 것을 보여줍니다.
+
+## 5) 서버 종료
 
 ```bash
 kill "$(cat /tmp/week8_demo_server.pid)"
@@ -75,12 +69,4 @@ python3 scripts/week8/bench_client_02_deep.py \
   --port 8080
 ```
 
-타임아웃 테스트:
-
-```bash
-python3 scripts/week8/bench_client_02_deep.py \
-  --scenario saturation \
-  --requests 2000 \
-  --concurrency 256 \
-  --port 8080
-```
+참고: `03_timeout.command`는 필요할 때만 추가 시연용으로 사용합니다.
