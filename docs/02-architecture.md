@@ -19,10 +19,12 @@ MVP 범위는 `docs/01-product-planning.md`를 따른다.
 flowchart LR
     SqlFile[SqlFile] --> CLI[CLI_main]
     Client[HTTP_Client] --> Api[API_Server]
-    Api --> Queue[Task_Queue]
-    Queue --> Pool[Thread_Pool]
+    Api --> SockQ[Socket_Queue]
+    SockQ --> IoPool[IO_Thread_Pool]
+    IoPool --> ReqQ[Parsed_Request_Queue]
+    ReqQ --> Pool[Worker_Pool]
     Pool --> Adapter[Engine_Adapter]
-    Adapter --> Lock[Global_DB_RWLock]
+    Adapter --> Lock[Table_Fair_RWLock]
     Lock --> Lexer[Lexer]
     CLI --> Lexer[Lexer]
     Lexer --> Parser[Parser]
@@ -40,8 +42,8 @@ flowchart LR
 설명:
 
 - **CLI**: 인자로 받은 `.sql` 파일을 읽어 **문장 단위**로 파서에 넘긴다.
-- **API Server**: `POST /query` 요청을 받아 작업 큐에 넣고, worker가 결과를 JSON으로 응답한다.
-- **Engine Adapter**: API 서버와 기존 SQL 엔진 사이의 얇은 접점이다. `SELECT`는 **전역 read lock**, `INSERT`와 미분류 요청은 **전역 write lock** 으로 보호한다.
+- **API Server**: `POST /query` 요청을 받아 **socket queue -> I/O thread -> parsed request queue -> worker** 흐름으로 처리한다. worker는 **완성된 요청 객체**만 받아 SQL 실행과 응답 전송을 맡는다.
+- **Engine Adapter**: API 서버와 기존 SQL 엔진 사이의 얇은 접점이다. 요청 SQL에서 테이블을 추출해 **테이블 단위 공정 read/write lock** 을 잡는다. `SELECT`는 read lock, `INSERT`와 미분류 요청은 write lock을 사용한다.
 - **Lexer**: 문자 스트림을 토큰 스트림으로 변환한다.
 - **Parser**: 토큰에서 **INSERT** / **SELECT** 구문 트리를 만든다.
 - **Executor**: AST를 해석해 Storage를 호출하고, SELECT 결과를 **구조화 결과 + TSV 렌더링**으로 공용화한다.
@@ -90,10 +92,10 @@ data/
 
 - **main.c**: 인자 검증, 파일 읽기, 문장 루프, 종료 코드
 - **main_api_server.c**: `sql_api_server [port] [workers]` 인자 처리, 시그널 종료 처리
-- **api_server.c**: `accept -> bounded queue -> worker pool` 관리, HTTP 응답 전송
+- **api_server.c**: `accept -> socket queue -> I/O thread pool -> parsed request queue -> worker pool` 관리, HTTP 응답 전송
 - **http_parser.c**: HTTP request line / header / `Content-Length` / JSON body 파싱
 - **response_builder.c**: 엔진 결과를 JSON body + HTTP 응답 문자열로 변환
-- **engine_adapter.c**: 엔진 호출 read/write lock 보호
+- **engine_adapter.c**: 엔진 호출용 테이블 단위 공정 read/write lock 보호 + lock 대기 시간 측정
 - **lexer.c**: 토큰화만 (키워드 대소문자 정책은 `docs/03-api-reference.md`)
 - **parser.c**: 구문 분석만
 - **executor.c**: “무엇을 할지” — INSERT/SELECT 의미
@@ -129,9 +131,13 @@ data/
 - **파일 없음 + SELECT**: 에러.
 - **빈 데이터(헤더만)**: SELECT 는 헤더만 또는 0행 출력 — 동작을 `docs/03-api-reference.md`에 맞출 것.
 - **API 요청 단위**: HTTP 연결 하나당 요청 하나만 처리하고 응답 후 연결을 닫는다. `Content-Length`만 지원하고 chunked / keep-alive 는 지원하지 않는다.
-- **동시 실행**: API 서버는 여러 worker를 두고, `SELECT`는 **전역 read lock** 으로 함께 실행할 수 있다. `INSERT`와 미분류 요청은 **전역 write lock** 으로 직렬화한다.
+- **요청 큐 구조**: accept thread는 socket fd를 **socket queue**에 넣고, I/O thread가 요청을 끝까지 읽고 검증한 뒤 **parsed request queue**에 넣는다. worker는 body 읽기 없이 SQL 실행만 담당한다.
+- **동시 실행**: API 서버는 여러 worker를 두고, `SELECT`는 **테이블 단위 read lock** 으로 같은 테이블에 대해 함께 실행할 수 있다. `INSERT`와 미분류 요청은 **테이블 단위 write lock** 으로 직렬화한다. 다른 테이블끼리는 서로 다른 lock entry를 사용하므로 경합이 줄어든다.
+- **writer starvation 방지**: 테이블 lock은 writer 대기 중 신규 reader를 막는 **writer-preferred fair rwlock** 정책을 사용한다.
 - **WEEK7 인덱스 lazy-load**: `WHERE id = ...` 경로에서 쓰는 프로세스 메모리 인덱스 캐시는 `week7_index.c` 내부 `rwlock` 으로 초기 로딩과 조회를 보호한다.
-- **큐 포화 시**: bounded queue 가 가득 차면 해당 요청은 즉시 `503 Service Unavailable` 로 거절한다.
+- **lock order**: `g_table_map_mutex` 로 테이블 lock entry를 찾거나 만든 뒤 해제하고, 그 다음 **table fair rwlock** 을 잡는다. 엔진 실행 중 `week7_index.c` 내부 lock이 추가로 사용될 수 있으나, map mutex를 쥔 채로 table lock을 기다리지는 않는다.
+- **큐 포화 시**: socket queue 또는 parsed request queue 가 가득 차면 해당 요청은 즉시 `503 Service Unavailable` 로 거절한다.
+- **측정 지표**: 운영 중 `SQL_API_SERVER_METRICS=1` 을 켜면 queue 대기 시간, request read/parse 시간, lock 대기 시간, SQL 실행 시간, 전체 응답 시간을 stderr 로 기록할 수 있다.
 
 ## 6) 핵심 시퀀스
 
@@ -189,14 +195,19 @@ B+ 트리·자동 `id`·`WHERE id = …` 가 붙은 뒤의 **INSERT / SELECT(인
 sequenceDiagram
     participant C as Client
     participant A as accept_thread
-    participant Q as task_queue
+    participant SQ as socket_queue
+    participant I as io_worker
+    participant RQ as parsed_request_queue
     participant W as worker
     participant D as engine_adapter
     participant E as sql_processor
 
     C->>A: POST /query
-    A->>Q: enqueue(socket fd)
-    Q-->>W: dequeue(socket fd)
+    A->>SQ: enqueue(socket fd)
+    SQ-->>I: dequeue(socket fd)
+    I->>I: read + parse + validate
+    I->>RQ: enqueue(parsed request)
+    RQ-->>W: dequeue(parsed request)
     W->>D: execute_sql(sql)
     D->>E: sql_processor_run_text(sql)
     E-->>D: SqlExecutionResult

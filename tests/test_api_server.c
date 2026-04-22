@@ -30,6 +30,7 @@ typedef struct {
 static void *insert_thread_main(void *arg);
 static void *select_thread_main(void *arg);
 static void *repeated_select_thread_main(void *arg);
+static int test_slow_client_does_not_block_execution(void);
 
 static int fail(const char *message) {
     fprintf(stderr, "%s\n", message);
@@ -435,6 +436,67 @@ static int test_mixed_read_write_requests(void) {
     return 0;
 }
 
+static int test_slow_client_does_not_block_execution(void) {
+    ApiServer *server = NULL;
+    uint16_t port = 0;
+    int slow_client = -1;
+    char request[1024];
+    char *response = NULL;
+
+    if (cleanup_files(), seed_table() != 0) {
+        return fail("seed slow client");
+    }
+    if (start_server(&server, &port, 2, 4) != 0) {
+        cleanup_files();
+        return fail("start slow client server");
+    }
+
+    slow_client = open_client(port);
+    if (slow_client < 0) {
+        api_server_destroy(server);
+        cleanup_files();
+        return fail("open slow client");
+    }
+
+    snprintf(request, sizeof request,
+             "POST /query HTTP/1.1\r\n"
+             "Host: localhost\r\n"
+             "Content-Length: 64\r\n"
+             "\r\n"
+             "{\"sql\":\"SELECT");
+    if (send_all(slow_client, request, strlen(request)) != 0) {
+        api_server_destroy(server);
+        cleanup_files();
+        close(slow_client);
+        return fail("send slow client");
+    }
+
+    usleep(100000);
+
+    build_request(request, sizeof request, "POST", "/query",
+                  "{\"sql\":\"SELECT * FROM test_api_server_users;\"}", 1);
+    if (send_http_request(port, request, &response) != 0) {
+        api_server_destroy(server);
+        cleanup_files();
+        close(slow_client);
+        return fail("fast request during slow client");
+    }
+    if (strstr(response, "HTTP/1.1 200 OK") == NULL || strstr(response, "\"statementType\":\"select\"") == NULL) {
+        free(response);
+        api_server_destroy(server);
+        cleanup_files();
+        close(slow_client);
+        return fail("fast request blocked by slow client");
+    }
+
+    free(response);
+    shutdown(slow_client, SHUT_RDWR);
+    close(slow_client);
+    api_server_destroy(server);
+    cleanup_files();
+    return 0;
+}
+
 static void *insert_thread_main(void *arg) {
     InsertThreadArgs *thread_arg = (InsertThreadArgs *)arg;
     char request[1024];
@@ -509,7 +571,9 @@ static int test_queue_full(void) {
     if (cleanup_files(), seed_table() != 0) {
         return fail("seed queue");
     }
+    setenv("SQL_API_SERVER_TEST_EXEC_DELAY_MS", "250", 1);
     if (start_server(&server, &port, 1, 1) != 0) {
+        unsetenv("SQL_API_SERVER_TEST_EXEC_DELAY_MS");
         cleanup_files();
         return fail("start queue server");
     }
@@ -519,6 +583,7 @@ static int test_queue_full(void) {
     client3 = open_client(port);
     if (client1 < 0 || client2 < 0 || client3 < 0) {
         api_server_destroy(server);
+        unsetenv("SQL_API_SERVER_TEST_EXEC_DELAY_MS");
         cleanup_files();
         close(client1);
         close(client2);
@@ -526,26 +591,23 @@ static int test_queue_full(void) {
         return fail("open clients");
     }
 
-    snprintf(request, sizeof request,
-             "POST /query HTTP/1.1\r\n"
-             "Host: localhost\r\n"
-             "Content-Length: 64\r\n"
-             "\r\n"
-             "{\"sql\":\"SELECT");
+    build_request(request, sizeof request, "POST", "/query",
+                  "{\"sql\":\"SELECT * FROM test_api_server_users;\"}", 1);
     if (send_all(client1, request, strlen(request)) != 0) {
         api_server_destroy(server);
+        unsetenv("SQL_API_SERVER_TEST_EXEC_DELAY_MS");
         cleanup_files();
         close(client1);
         close(client2);
         close(client3);
         return fail("send client1");
     }
+    shutdown(client1, SHUT_WR);
     usleep(200000);
 
-    build_request(request, sizeof request, "POST", "/query",
-                  "{\"sql\":\"SELECT * FROM test_api_server_users;\"}", 1);
     if (send_all(client2, request, strlen(request)) != 0) {
         api_server_destroy(server);
+        unsetenv("SQL_API_SERVER_TEST_EXEC_DELAY_MS");
         cleanup_files();
         close(client1);
         close(client2);
@@ -557,6 +619,7 @@ static int test_queue_full(void) {
 
     if (send_all(client3, request, strlen(request)) != 0) {
         api_server_destroy(server);
+        unsetenv("SQL_API_SERVER_TEST_EXEC_DELAY_MS");
         cleanup_files();
         close(client1);
         close(client2);
@@ -566,6 +629,7 @@ static int test_queue_full(void) {
     shutdown(client3, SHUT_WR);
     if (read_all(client3, &response) != 0) {
         api_server_destroy(server);
+        unsetenv("SQL_API_SERVER_TEST_EXEC_DELAY_MS");
         cleanup_files();
         close(client1);
         close(client2);
@@ -575,6 +639,7 @@ static int test_queue_full(void) {
     if (strstr(response, "HTTP/1.1 503 Service Unavailable") == NULL) {
         free(response);
         api_server_destroy(server);
+        unsetenv("SQL_API_SERVER_TEST_EXEC_DELAY_MS");
         cleanup_files();
         close(client1);
         close(client2);
@@ -584,13 +649,11 @@ static int test_queue_full(void) {
     free(response);
     response = NULL;
 
-    shutdown(client1, SHUT_RDWR);
-    close(client1);
-    client1 = -1;
-
     if (read_all(client2, &response) != 0) {
         api_server_destroy(server);
+        unsetenv("SQL_API_SERVER_TEST_EXEC_DELAY_MS");
         cleanup_files();
+        close(client1);
         close(client2);
         close(client3);
         return fail("read client2");
@@ -598,13 +661,39 @@ static int test_queue_full(void) {
     if (strstr(response, "HTTP/1.1 200 OK") == NULL) {
         free(response);
         api_server_destroy(server);
+        unsetenv("SQL_API_SERVER_TEST_EXEC_DELAY_MS");
         cleanup_files();
+        close(client1);
         close(client2);
         close(client3);
         return fail("queued request response");
     }
 
     free(response);
+    response = NULL;
+    if (read_all(client1, &response) != 0) {
+        api_server_destroy(server);
+        unsetenv("SQL_API_SERVER_TEST_EXEC_DELAY_MS");
+        cleanup_files();
+        close(client1);
+        close(client2);
+        close(client3);
+        return fail("read client1");
+    }
+    if (strstr(response, "HTTP/1.1 200 OK") == NULL) {
+        free(response);
+        api_server_destroy(server);
+        unsetenv("SQL_API_SERVER_TEST_EXEC_DELAY_MS");
+        cleanup_files();
+        close(client1);
+        close(client2);
+        close(client3);
+        return fail("running request response");
+    }
+
+    free(response);
+    unsetenv("SQL_API_SERVER_TEST_EXEC_DELAY_MS");
+    close(client1);
     close(client2);
     close(client3);
     api_server_destroy(server);
@@ -617,6 +706,9 @@ int main(void) {
         return 1;
     }
     if (test_mixed_read_write_requests() != 0) {
+        return 1;
+    }
+    if (test_slow_client_does_not_block_execution() != 0) {
         return 1;
     }
     if (test_queue_full() != 0) {

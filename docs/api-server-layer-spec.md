@@ -28,7 +28,9 @@ sql_api_server [port] [workers]
 ```text
 HTTP client
 -> accept thread
--> bounded task queue
+-> bounded socket queue
+-> I/O threads
+-> bounded parsed-request queue
 -> worker threads
 -> engine_adapter
 -> sql_processor_run_text
@@ -38,10 +40,14 @@ HTTP client
 핵심 원칙:
 
 - 기존 parser / executor / CSV / WEEK7 B+ 인덱스는 재작성하지 않는다.
-- `engine_adapter` 는 `SELECT`에 **전역 read lock**, `INSERT`와 미분류 요청에 **전역 write lock** 을 적용한다.
+- `accept thread` 는 연결만 받고, 완성되지 않은 소켓을 **socket queue** 에 넣는다.
+- `I/O thread` 는 socket queue 에서 소켓을 꺼내 **요청 전체를 끝까지 읽고**, HTTP/JSON 검증까지 마친 뒤 **parsed request queue** 에 넣는다.
+- `worker` 는 body 를 직접 읽지 않고, **완성된 요청 객체** 만 받아 SQL 실행과 응답 전송을 맡는다.
+- `engine_adapter` 는 요청 SQL에서 테이블명을 추출해 `SELECT`에 **테이블 단위 read lock**, `INSERT`와 미분류 요청에 **테이블 단위 write lock** 을 적용한다.
+- 락은 **writer 대기 중 신규 reader 유입을 막는 writer-preferred fair rwlock** 정책을 사용한다.
 - `WHERE id = ...` 경로의 WEEK7 인덱스 lazy-load 는 `week7_index.c` 내부 lock 으로 별도 보호한다.
-- worker 는 요청 파싱, 엔진 호출, 응답 작성, 소켓 종료까지 책임진다.
-- queue 가 가득 차면 요청은 즉시 `503` 으로 거절한다.
+- socket queue 또는 parsed request queue 가 가득 차면 요청은 즉시 `503` 으로 거절한다.
+- `SQL_API_SERVER_METRICS=1` 이면 queue 대기 시간, read/parse 시간, lock 대기 시간, SQL 실행 시간, 전체 응답 시간을 stderr 에 기록한다.
 
 ## 4) 엔진 접점
 
@@ -141,7 +147,8 @@ HTTP status 는 `200 OK` 를 유지하고, body 에 엔진 오류를 담는다.
 - `405 Method Not Allowed`
   - `/query` 에 대한 비-POST 요청
 - `503 Service Unavailable`
-  - bounded queue 포화
+  - bounded socket queue 포화
+  - bounded parsed-request queue 포화
 
 에러 body 형식:
 
@@ -156,5 +163,5 @@ HTTP status 는 `200 OK` 를 유지하고, body 에 엔진 오류를 담는다.
 
 - `test_sql_processor_api`: 엔진 구조화 결과 / 단일 문장 제약 / exec error 확인
 - `test_http_parser`: request line, `Content-Length`, JSON `sql` 추출 확인
-- `test_api_server`: SELECT/INSERT/400/404/405/503, 동시 `SELECT WHERE id = ...`, 동시 insert, 혼합 read/write 확인
+- `test_api_server`: SELECT/INSERT/400/404/405/503, 동시 `SELECT WHERE id = ...`, 동시 insert, 혼합 read/write, **slow client 가 worker 를 붙잡지 않는 구조**, queue 포화 시 즉시 거절 확인
 - 기존 `test_executor`, `test_main_integration`, `test_data_integrity` 는 계속 통과해야 한다
