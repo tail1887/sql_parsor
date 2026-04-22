@@ -88,6 +88,8 @@ sequenceDiagram
 
 실제 테스트 결과 표:
 
+![02 throughput comparison](../../../../artifacts/week8/presentation_plotly/week8_plotly_02.png)
+
 | scenario | policy | throughput_mean | p95_mean | p99_mean | 503_mean | 504_mean | success_mean |
 | --- | --- | ---: | ---: | ---: | ---: | ---: | ---: |
 | normal | pool | 17462.41 | 3.29 | 4.95 | 0.0000 | 0.0000 | 0.3000 |
@@ -116,6 +118,8 @@ sequenceDiagram
   - 단점: 정책 복잡, 예측성 낮음
 
 실제 테스트 결과 표:
+
+![06 throughput comparison](../../../../artifacts/week8/presentation_plotly/week8_plotly_06.png)
 
 | scenario | policy | throughput_mean | p95_mean | p99_mean | 503_mean | 504_mean | success_mean |
 | --- | --- | ---: | ---: | ---: | ---: | ---: | ---: |
