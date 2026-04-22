@@ -7,12 +7,6 @@
 - 외부 클라이언트가 API를 통해 DBMS 기능을 사용할 수 있어야 한다.
 - 이전 주차의 SQL 처리기와 B+ 트리 인덱스를 그대로 재사용한다.
 
-짧게 보여줄 키워드:
-- `C`
-- `API Server`
-- `Thread Pool`
-- `SQL Engine Reuse`
-- `B+ Tree`
 
 ## 2. 정의
 
