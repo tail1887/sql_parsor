@@ -22,7 +22,7 @@ flowchart LR
     Api --> Queue[Task_Queue]
     Queue --> Pool[Thread_Pool]
     Pool --> Adapter[Engine_Adapter]
-    Adapter --> Lock[Global_DB_Mutex]
+    Adapter --> Lock[Global_DB_RWLock]
     Lock --> Lexer[Lexer]
     CLI --> Lexer[Lexer]
     Lexer --> Parser[Parser]
@@ -41,7 +41,7 @@ flowchart LR
 
 - **CLI**: 인자로 받은 `.sql` 파일을 읽어 **문장 단위**로 파서에 넘긴다.
 - **API Server**: `POST /query` 요청을 받아 작업 큐에 넣고, worker가 결과를 JSON으로 응답한다.
-- **Engine Adapter**: API 서버와 기존 SQL 엔진 사이의 얇은 접점이다. 엔진 호출 전체를 **전역 mutex** 로 감싼다.
+- **Engine Adapter**: API 서버와 기존 SQL 엔진 사이의 얇은 접점이다. `SELECT`는 **전역 read lock**, `INSERT`와 미분류 요청은 **전역 write lock** 으로 보호한다.
 - **Lexer**: 문자 스트림을 토큰 스트림으로 변환한다.
 - **Parser**: 토큰에서 **INSERT** / **SELECT** 구문 트리를 만든다.
 - **Executor**: AST를 해석해 Storage를 호출하고, SELECT 결과를 **구조화 결과 + TSV 렌더링**으로 공용화한다.
@@ -93,7 +93,7 @@ data/
 - **api_server.c**: `accept -> bounded queue -> worker pool` 관리, HTTP 응답 전송
 - **http_parser.c**: HTTP request line / header / `Content-Length` / JSON body 파싱
 - **response_builder.c**: 엔진 결과를 JSON body + HTTP 응답 문자열로 변환
-- **engine_adapter.c**: 엔진 호출 mutex 보호
+- **engine_adapter.c**: 엔진 호출 read/write lock 보호
 - **lexer.c**: 토큰화만 (키워드 대소문자 정책은 `docs/03-api-reference.md`)
 - **parser.c**: 구문 분석만
 - **executor.c**: “무엇을 할지” — INSERT/SELECT 의미
@@ -129,7 +129,8 @@ data/
 - **파일 없음 + SELECT**: 에러.
 - **빈 데이터(헤더만)**: SELECT 는 헤더만 또는 0행 출력 — 동작을 `docs/03-api-reference.md`에 맞출 것.
 - **API 요청 단위**: HTTP 연결 하나당 요청 하나만 처리하고 응답 후 연결을 닫는다. `Content-Length`만 지원하고 chunked / keep-alive 는 지원하지 않는다.
-- **동시 실행**: API 서버는 여러 worker를 두되, 첫 제출에서는 **엔진 호출 전체를 전역 mutex 로 직렬화** 한다. CSV 파일과 WEEK7 인덱스가 전역/파일 기반이기 때문이다.
+- **동시 실행**: API 서버는 여러 worker를 두고, `SELECT`는 **전역 read lock** 으로 함께 실행할 수 있다. `INSERT`와 미분류 요청은 **전역 write lock** 으로 직렬화한다.
+- **WEEK7 인덱스 lazy-load**: `WHERE id = ...` 경로에서 쓰는 프로세스 메모리 인덱스 캐시는 `week7_index.c` 내부 `rwlock` 으로 초기 로딩과 조회를 보호한다.
 - **큐 포화 시**: bounded queue 가 가득 차면 해당 요청은 즉시 `503 Service Unavailable` 로 거절한다.
 
 ## 6) 핵심 시퀀스

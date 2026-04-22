@@ -72,10 +72,12 @@ add_executable(sql_processor src/main.c ${SQL_CORE_SOURCES})
 # [target_include_directories] 이 타깃을 컴파일할 때만 헤더 검색 경로(-I)에 넣습니다.
 # PRIVATE: 이 타깃 빌드에만 쓰이고 다른 타깃에 전파하지 않음(sql_processor 전용).
 target_include_directories(sql_processor PRIVATE "${CMAKE_CURRENT_SOURCE_DIR}/include")
+target_link_libraries(sql_processor PRIVATE Threads::Threads)
 
 # 데모용 trace 실행 파일: 표준 실행 + 단계별 JSONL 추적 출력.
 add_executable(sql_processor_trace src/main_trace.c ${SQL_TRACE_SOURCES})
 target_include_directories(sql_processor_trace PRIVATE "${CMAKE_CURRENT_SOURCE_DIR}/include")
+target_link_libraries(sql_processor_trace PRIVATE Threads::Threads)
 
 add_executable(sql_api_server src/main_api_server.c ${API_SERVER_SOURCES} ${SQL_CORE_SOURCES})
 target_include_directories(sql_api_server PRIVATE "${CMAKE_CURRENT_SOURCE_DIR}/include")
@@ -102,17 +104,21 @@ target_include_directories(test_csv_storage PRIVATE "${CMAKE_CURRENT_SOURCE_DIR}
 add_executable(test_executor tests/test_executor.c src/executor.c src/sql_result.c src/csv_storage.c src/parser.c
                              src/ast.c src/lexer.c src/week7/bplus_tree.c src/week7/week7_index.c)
 target_include_directories(test_executor PRIVATE "${CMAKE_CURRENT_SOURCE_DIR}/include")
+target_link_libraries(test_executor PRIVATE Threads::Threads)
 
 add_executable(test_main_integration tests/test_main_integration.c ${SQL_CORE_SOURCES})
 target_include_directories(test_main_integration PRIVATE "${CMAKE_CURRENT_SOURCE_DIR}/include")
+target_link_libraries(test_main_integration PRIVATE Threads::Threads)
 
 add_executable(test_data_integrity tests/test_data_integrity.c src/executor.c src/sql_result.c src/csv_storage.c
                                    src/parser.c src/ast.c src/lexer.c src/week7/bplus_tree.c
                                    src/week7/week7_index.c)
 target_include_directories(test_data_integrity PRIVATE "${CMAKE_CURRENT_SOURCE_DIR}/include")
+target_link_libraries(test_data_integrity PRIVATE Threads::Threads)
 
 add_executable(test_sql_processor_api tests/test_sql_processor_api.c ${SQL_CORE_SOURCES})
 target_include_directories(test_sql_processor_api PRIVATE "${CMAKE_CURRENT_SOURCE_DIR}/include")
+target_link_libraries(test_sql_processor_api PRIVATE Threads::Threads)
 
 add_executable(test_http_parser tests/test_http_parser.c src/http_parser.c)
 target_include_directories(test_http_parser PRIVATE "${CMAKE_CURRENT_SOURCE_DIR}/include")

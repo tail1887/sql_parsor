@@ -16,7 +16,20 @@ typedef struct {
     int ok;
 } InsertThreadArgs;
 
+typedef struct {
+    uint16_t port;
+    int ok;
+} SelectThreadArgs;
+
+typedef struct {
+    uint16_t port;
+    size_t iterations;
+    int ok;
+} RepeatedSelectThreadArgs;
+
 static void *insert_thread_main(void *arg);
+static void *select_thread_main(void *arg);
+static void *repeated_select_thread_main(void *arg);
 
 static int fail(const char *message) {
     fprintf(stderr, "%s\n", message);
@@ -170,7 +183,8 @@ static int test_basic_requests(void) {
     char request[1024];
     char *response = NULL;
     pthread_t threads[4];
-    InsertThreadArgs args[4];
+    InsertThreadArgs insert_args[4];
+    SelectThreadArgs select_args[4];
 
     if (cleanup_files(), seed_table() != 0) {
         return fail("seed basic");
@@ -246,11 +260,29 @@ static int test_basic_requests(void) {
     response = NULL;
 
     for (size_t i = 0; i < 4; i++) {
-        snprintf(args[i].name, sizeof args[i].name, "user%zu", i);
-        snprintf(args[i].email, sizeof args[i].email, "user%zu@example.com", i);
-        args[i].port = port;
-        args[i].ok = 0;
-        if (pthread_create(&threads[i], NULL, insert_thread_main, &args[i]) != 0) {
+        select_args[i].port = port;
+        select_args[i].ok = 0;
+        if (pthread_create(&threads[i], NULL, select_thread_main, &select_args[i]) != 0) {
+            api_server_destroy(server);
+            cleanup_files();
+            return fail("pthread create select");
+        }
+    }
+    for (size_t i = 0; i < 4; i++) {
+        pthread_join(threads[i], NULL);
+        if (!select_args[i].ok) {
+            api_server_destroy(server);
+            cleanup_files();
+            return fail("concurrent select failed");
+        }
+    }
+
+    for (size_t i = 0; i < 4; i++) {
+        snprintf(insert_args[i].name, sizeof insert_args[i].name, "user%zu", i);
+        snprintf(insert_args[i].email, sizeof insert_args[i].email, "user%zu@example.com", i);
+        insert_args[i].port = port;
+        insert_args[i].ok = 0;
+        if (pthread_create(&threads[i], NULL, insert_thread_main, &insert_args[i]) != 0) {
             api_server_destroy(server);
             cleanup_files();
             return fail("pthread create");
@@ -258,7 +290,7 @@ static int test_basic_requests(void) {
     }
     for (size_t i = 0; i < 4; i++) {
         pthread_join(threads[i], NULL);
-        if (!args[i].ok) {
+        if (!insert_args[i].ok) {
             api_server_destroy(server);
             cleanup_files();
             return fail("concurrent insert failed");
@@ -320,6 +352,89 @@ static int test_basic_requests(void) {
     return 0;
 }
 
+static int test_mixed_read_write_requests(void) {
+    ApiServer *server = NULL;
+    uint16_t port = 0;
+    char request[1024];
+    char *response = NULL;
+    pthread_t read_threads[2];
+    pthread_t write_threads[4];
+    RepeatedSelectThreadArgs read_args[2];
+    InsertThreadArgs write_args[4];
+
+    if (cleanup_files(), seed_table() != 0) {
+        return fail("seed mixed");
+    }
+    if (start_server(&server, &port, 6, 32) != 0) {
+        cleanup_files();
+        return fail("start mixed server");
+    }
+
+    for (size_t i = 0; i < 2; i++) {
+        read_args[i].port = port;
+        read_args[i].iterations = 24;
+        read_args[i].ok = 0;
+        if (pthread_create(&read_threads[i], NULL, repeated_select_thread_main, &read_args[i]) != 0) {
+            api_server_destroy(server);
+            cleanup_files();
+            return fail("pthread create mixed read");
+        }
+    }
+
+    usleep(50000);
+
+    for (size_t i = 0; i < 4; i++) {
+        snprintf(write_args[i].name, sizeof write_args[i].name, "mixuser%zu", i);
+        snprintf(write_args[i].email, sizeof write_args[i].email, "mixuser%zu@example.com", i);
+        write_args[i].port = port;
+        write_args[i].ok = 0;
+        if (pthread_create(&write_threads[i], NULL, insert_thread_main, &write_args[i]) != 0) {
+            api_server_destroy(server);
+            cleanup_files();
+            return fail("pthread create mixed write");
+        }
+    }
+
+    for (size_t i = 0; i < 4; i++) {
+        pthread_join(write_threads[i], NULL);
+        if (!write_args[i].ok) {
+            api_server_destroy(server);
+            cleanup_files();
+            return fail("mixed write failed");
+        }
+    }
+
+    for (size_t i = 0; i < 2; i++) {
+        pthread_join(read_threads[i], NULL);
+        if (!read_args[i].ok) {
+            api_server_destroy(server);
+            cleanup_files();
+            return fail("mixed read failed");
+        }
+    }
+
+    build_request(request, sizeof request, "POST", "/query",
+                  "{\"sql\":\"SELECT * FROM test_api_server_users;\"}", 1);
+    if (send_http_request(port, request, &response) != 0) {
+        api_server_destroy(server);
+        cleanup_files();
+        return fail("mixed final select request");
+    }
+    if (strstr(response, "\"message\":\"5 rows selected\"") == NULL || strstr(response, "mixuser0") == NULL ||
+        strstr(response, "mixuser1") == NULL || strstr(response, "mixuser2") == NULL ||
+        strstr(response, "mixuser3") == NULL) {
+        free(response);
+        api_server_destroy(server);
+        cleanup_files();
+        return fail("mixed final select response");
+    }
+
+    free(response);
+    api_server_destroy(server);
+    cleanup_files();
+    return 0;
+}
+
 static void *insert_thread_main(void *arg) {
     InsertThreadArgs *thread_arg = (InsertThreadArgs *)arg;
     char request[1024];
@@ -334,6 +449,51 @@ static void *insert_thread_main(void *arg) {
         thread_arg->ok = 1;
     }
     free(response);
+    return NULL;
+}
+
+static void *select_thread_main(void *arg) {
+    SelectThreadArgs *thread_arg = (SelectThreadArgs *)arg;
+    char request[1024];
+    char *response = NULL;
+
+    build_request(request, sizeof request, "POST", "/query",
+                  "{\"sql\":\"SELECT email FROM test_api_server_users WHERE id = 1;\"}", 1);
+    if (send_http_request(thread_arg->port, request, &response) == 0 &&
+        strstr(response, "\"statementType\":\"select\"") != NULL &&
+        strstr(response, "\"columns\":[\"email\"]") != NULL &&
+        strstr(response, "alice@example.com") != NULL) {
+        thread_arg->ok = 1;
+    }
+    free(response);
+    return NULL;
+}
+
+static void *repeated_select_thread_main(void *arg) {
+    RepeatedSelectThreadArgs *thread_arg = (RepeatedSelectThreadArgs *)arg;
+    char request[1024];
+    char *response = NULL;
+
+    build_request(request, sizeof request, "POST", "/query",
+                  "{\"sql\":\"SELECT email FROM test_api_server_users WHERE id = 1;\"}", 1);
+
+    for (size_t i = 0; i < thread_arg->iterations; i++) {
+        if (send_http_request(thread_arg->port, request, &response) != 0) {
+            free(response);
+            return NULL;
+        }
+        if (strstr(response, "\"statementType\":\"select\"") == NULL ||
+            strstr(response, "\"columns\":[\"email\"]") == NULL ||
+            strstr(response, "alice@example.com") == NULL) {
+            free(response);
+            return NULL;
+        }
+        free(response);
+        response = NULL;
+        usleep(5000);
+    }
+
+    thread_arg->ok = 1;
     return NULL;
 }
 
@@ -454,6 +614,9 @@ static int test_queue_full(void) {
 
 int main(void) {
     if (test_basic_requests() != 0) {
+        return 1;
+    }
+    if (test_mixed_read_write_requests() != 0) {
         return 1;
     }
     if (test_queue_full() != 0) {

@@ -38,7 +38,8 @@ HTTP client
 핵심 원칙:
 
 - 기존 parser / executor / CSV / WEEK7 B+ 인덱스는 재작성하지 않는다.
-- `engine_adapter` 가 엔진 호출 전체를 **전역 mutex** 로 감싼다.
+- `engine_adapter` 는 `SELECT`에 **전역 read lock**, `INSERT`와 미분류 요청에 **전역 write lock** 을 적용한다.
+- `WHERE id = ...` 경로의 WEEK7 인덱스 lazy-load 는 `week7_index.c` 내부 lock 으로 별도 보호한다.
 - worker 는 요청 파싱, 엔진 호출, 응답 작성, 소켓 종료까지 책임진다.
 - queue 가 가득 차면 요청은 즉시 `503` 으로 거절한다.
 
@@ -155,5 +156,5 @@ HTTP status 는 `200 OK` 를 유지하고, body 에 엔진 오류를 담는다.
 
 - `test_sql_processor_api`: 엔진 구조화 결과 / 단일 문장 제약 / exec error 확인
 - `test_http_parser`: request line, `Content-Length`, JSON `sql` 추출 확인
-- `test_api_server`: SELECT/INSERT/400/404/405/503 및 동시 insert 확인
+- `test_api_server`: SELECT/INSERT/400/404/405/503, 동시 `SELECT WHERE id = ...`, 동시 insert, 혼합 read/write 확인
 - 기존 `test_executor`, `test_main_integration`, `test_data_integrity` 는 계속 통과해야 한다

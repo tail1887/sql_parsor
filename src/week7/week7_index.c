@@ -6,6 +6,7 @@
 
 #include <ctype.h>
 #include <errno.h>
+#include <pthread.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -45,6 +46,7 @@ typedef struct Ent {
 static Ent *g_ents;
 static size_t g_n;
 static size_t g_cap;
+static pthread_rwlock_t g_index_lock = PTHREAD_RWLOCK_INITIALIZER;
 
 static void clear_loaded_state(Ent *e) {
     if (!e) {
@@ -80,6 +82,7 @@ static int parse_strict_id_value(const char *text, int64_t *out) {
 }
 
 void week7_reset(void) {
+    pthread_rwlock_wrlock(&g_index_lock);
     for (size_t i = 0; i < g_n; i++) {
         free(g_ents[i].table);
         bplus_destroy(g_ents[i].tree);
@@ -88,9 +91,10 @@ void week7_reset(void) {
     g_ents = NULL;
     g_n = 0;
     g_cap = 0;
+    pthread_rwlock_unlock(&g_index_lock);
 }
 
-static Ent *find_ent(const char *table) {
+static Ent *find_ent_unlocked(const char *table) {
     for (size_t i = 0; i < g_n; i++) {
         if (strcmp(g_ents[i].table, table) == 0) {
             return &g_ents[i];
@@ -99,8 +103,8 @@ static Ent *find_ent(const char *table) {
     return NULL;
 }
 
-static Ent *alloc_ent(const char *table) {
-    Ent *e = find_ent(table);
+static Ent *alloc_ent_unlocked(const char *table) {
+    Ent *e = find_ent_unlocked(table);
     if (e) {
         return e;
     }
@@ -129,70 +133,80 @@ int week7_ensure_loaded(const char *table) {
     CsvTable *t = NULL;
     Ent *e = NULL;
     int64_t mx = 0;
+    int rc = -1;
 
     if (!table) {
         return -1;
     }
 
-    e = alloc_ent(table);
+    pthread_rwlock_wrlock(&g_index_lock);
+
+    e = alloc_ent_unlocked(table);
     if (!e) {
-        return -1;
+        goto cleanup;
     }
     if (e->loaded) {
-        return 0;
+        rc = 0;
+        goto cleanup;
     }
 
     clear_loaded_state(e);
 
     if (csv_storage_read_table(table, &t) != 0 || !t) {
-        return -1;
+        goto cleanup;
     }
     if (t->header_count == 0) {
-        csv_storage_free_table(t);
-        return -1;
+        goto cleanup;
     }
 
     e->ncol = t->header_count;
     e->id_pk = (ascii_strcasecmp(t->headers[0], "id") == 0);
     if (!e->id_pk) {
         e->loaded = 1;
-        csv_storage_free_table(t);
-        return 0;
+        rc = 0;
+        goto cleanup;
     }
 
     e->tree = bplus_create();
     if (!e->tree) {
-        csv_storage_free_table(t);
-        clear_loaded_state(e);
-        return -1;
+        goto cleanup;
     }
 
     for (size_t r = 0; r < t->row_count; r++) {
         int64_t id = 0;
         if (parse_strict_id_value(t->rows[r][0], &id) != 0) {
-            csv_storage_free_table(t);
-            clear_loaded_state(e);
-            return -1;
+            goto cleanup;
         }
         if (id > mx) {
             mx = id;
         }
         if (bplus_insert(e->tree, id, r) != 0) {
-            csv_storage_free_table(t);
-            clear_loaded_state(e);
-            return -1;
+            goto cleanup;
         }
     }
 
     e->next_id = mx + 1;
     e->loaded = 1;
+    rc = 0;
+
+cleanup:
+    if (rc != 0 && e) {
+        clear_loaded_state(e);
+    }
     csv_storage_free_table(t);
-    return 0;
+    pthread_rwlock_unlock(&g_index_lock);
+    return rc;
 }
 
 int week7_table_has_id_pk(const char *table) {
-    Ent *e = find_ent(table);
-    return (e && e->loaded && e->id_pk) ? 1 : 0;
+    Ent *e = NULL;
+    int rc = 0;
+
+    pthread_rwlock_rdlock(&g_index_lock);
+    e = find_ent_unlocked(table);
+    rc = (e && e->loaded && e->id_pk) ? 1 : 0;
+    pthread_rwlock_unlock(&g_index_lock);
+    return rc;
 }
 
 static int int64_to_sqlvalue(int64_t v, SqlValue *dst) {
@@ -245,12 +259,17 @@ int week7_prepare_insert_values(const InsertStmt *stmt, SqlValue **out_vals, siz
         return -1;
     }
 
-    e = find_ent(stmt->table);
+    pthread_rwlock_rdlock(&g_index_lock);
+    e = find_ent_unlocked(stmt->table);
     if (!e || !e->id_pk) {
+        pthread_rwlock_unlock(&g_index_lock);
         return 1;
     }
 
     ncol = e->ncol;
+    aid = e->next_id;
+    pthread_rwlock_unlock(&g_index_lock);
+
     if (stmt->value_count != ncol && stmt->value_count + 1 != ncol) {
         return -1;
     }
@@ -260,7 +279,6 @@ int week7_prepare_insert_values(const InsertStmt *stmt, SqlValue **out_vals, siz
         return -1;
     }
 
-    aid = e->next_id;
     if (stmt->value_count + 1 == ncol) {
         if (int64_to_sqlvalue(aid, &vals[0]) != 0) {
             week7_free_prepared(vals, ncol);
@@ -292,21 +310,31 @@ int week7_prepare_insert_values(const InsertStmt *stmt, SqlValue **out_vals, siz
 }
 
 int week7_on_append_success(const char *table, int64_t assigned_id, size_t row_index) {
-    Ent *e = find_ent(table);
+    Ent *e = NULL;
+    int rc = 0;
+
+    pthread_rwlock_wrlock(&g_index_lock);
+    e = find_ent_unlocked(table);
     if (!e || !e->id_pk || !e->tree) {
+        pthread_rwlock_unlock(&g_index_lock);
         return 0;
     }
     if (bplus_insert(e->tree, assigned_id, row_index) != 0) {
-        return -1;
+        rc = -1;
+        goto cleanup;
     }
     if (assigned_id >= e->next_id) {
         e->next_id = assigned_id + 1;
     }
-    return 0;
+
+cleanup:
+    pthread_rwlock_unlock(&g_index_lock);
+    return rc;
 }
 
 int week7_lookup_row(const char *table, int64_t id, size_t *out_row_index) {
     Ent *e = NULL;
+    int rc = -1;
 
     if (!table || !out_row_index) {
         return -1;
@@ -315,9 +343,14 @@ int week7_lookup_row(const char *table, int64_t id, size_t *out_row_index) {
         return -1;
     }
 
-    e = find_ent(table);
+    pthread_rwlock_rdlock(&g_index_lock);
+    e = find_ent_unlocked(table);
     if (!e || !e->id_pk || !e->tree) {
-        return -1;
+        goto cleanup;
     }
-    return bplus_search(e->tree, id, out_row_index);
+    rc = bplus_search(e->tree, id, out_row_index);
+
+cleanup:
+    pthread_rwlock_unlock(&g_index_lock);
+    return rc;
 }

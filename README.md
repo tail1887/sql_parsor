@@ -78,7 +78,7 @@ flowchart LR
 | 영역       | 사용 기술                       |
 | -------- | --------------------------- |
 | Frontend | N/A (CLI)                   |
-| Core     | C (C11 권장), CMake           |
+| Core     | C (C11 권장), CMake, Makefile |
 | Database | 파일 기반 CSV (`data/` 디렉터리)    |
 | Infra    | 로컬 빌드                       |
 | Testing  | CTest, (선택) 스크립트 기반 SQL 픽스처 |
@@ -89,6 +89,15 @@ flowchart LR
 ### 1) 빌드
 
 프로젝트 루트에서:
+
+```bash
+make clean
+make
+```
+
+간단한 로컬 실행 흐름이 필요할 때는 위 `Makefile` 경로를 쓰면 됩니다. 산출물은 `build/` 아래에 생성됩니다.
+
+기존 CMake 빌드도 계속 사용할 수 있습니다.
 
 ```bash
 cmake -S . -B build
@@ -155,6 +164,12 @@ Windows PowerShell 예:
 
 ```bash
 ./build/sql_api_server 8080 4
+```
+
+또는:
+
+```bash
+make run-api PORT=8080 WORKERS=4
 ```
 
 다른 터미널에서:

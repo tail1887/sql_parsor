@@ -66,7 +66,7 @@ SQL 처리기에 맞춘 예시 브랜치 분리:
 2. `executor` 에서 SELECT 결과를 **구조체 + TSV 렌더링** 으로 분리
 3. `http_parser` 로 request line / header / JSON body 파싱
 4. `response_builder` 로 엔진 결과 → JSON / HTTP 응답 생성
-5. `engine_adapter` 로 전역 mutex 보호
+5. `engine_adapter` 로 전역 read/write lock 보호
 6. `api_server` 로 `accept -> queue -> worker pool` 완성
 7. `sql_api_server` 실행 파일, 서버 테스트, 문서 갱신
 
@@ -149,16 +149,18 @@ SQL 처리기에 맞춘 예시 브랜치 분리:
 
 - `sql_api_server` 실행 파일
 - `POST /query` JSON 응답
-- bounded queue + worker pool + 전역 mutex
+- bounded queue + worker pool + 전역 read/write lock
 - HTTP 통합 테스트와 문서 동기화
 
 ## 8) 로컬 명령 참고
 
 프로젝트 루트에서:
 
+- 로컬 편의 빌드: `make clean && make`
 - 설정 및 빌드: `cmake -S . -B build && cmake --build build`
 - 테스트: `ctest --test-dir build --output-on-failure`
 - API 서버 실행: `./build/sql_api_server 8080 4`
+- API 서버 실행(편의): `make run-api PORT=8080 WORKERS=4`
 - 포맷(선택): `clang-format -i src/*.c include/*.h tests/*.c`
 
 실행 파일 경로는 `README.md` 의 Quick Start 를 따른다.
