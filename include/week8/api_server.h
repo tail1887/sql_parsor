@@ -19,12 +19,19 @@ typedef enum {
     WEEK8_DISPATCH_PER_REQUEST = 1
 } Week8DispatchMode;
 
+typedef enum {
+    WEEK8_TIMEOUT_FIXED = 0,
+    WEEK8_TIMEOUT_DYNAMIC = 1
+} Week8TimeoutPolicy;
+
 typedef struct Week8ApiServer {
     int listen_fd;
     uint16_t actual_port;
     volatile sig_atomic_t stop_requested;
     FILE *err;
     Week8DispatchMode dispatch_mode;
+    Week8TimeoutPolicy timeout_policy;
+    int fixed_timeout_ms;
     int worker_count;
     int queue_capacity;
     void **client_queue;

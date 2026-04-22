@@ -34,6 +34,22 @@ static Week8DispatchMode resolve_dispatch_mode(void) {
     return WEEK8_DISPATCH_POOL;
 }
 
+static Week8TimeoutPolicy resolve_timeout_policy(void) {
+    const char *policy = getenv("W8_TIMEOUT_POLICY");
+    if (!policy) return WEEK8_TIMEOUT_DYNAMIC;
+    if (strcmp(policy, "fixed") == 0) return WEEK8_TIMEOUT_FIXED;
+    return WEEK8_TIMEOUT_DYNAMIC;
+}
+
+static int resolve_fixed_timeout_ms(void) {
+    const char *s = getenv("W8_FIXED_TIMEOUT_MS");
+    if (!s || s[0] == '\0') return 1200;
+    long v = strtol(s, NULL, 10);
+    if (v < 1) return 1;
+    if (v > 60000) return 60000;
+    return (int)v;
+}
+
 static struct timespec now_realtime(void) {
     struct timespec ts;
     clock_gettime(CLOCK_REALTIME, &ts);
@@ -627,6 +643,8 @@ int week8_api_server_init(Week8ApiServer *server, const Week8ApiServerConfig *co
     server->listen_fd = -1;
     server->err = err ? err : stderr;
     server->dispatch_mode = resolve_dispatch_mode();
+    server->timeout_policy = resolve_timeout_policy();
+    server->fixed_timeout_ms = resolve_fixed_timeout_ms();
 
     const char *host = "127.0.0.1";
     uint16_t port = 0;
@@ -721,7 +739,11 @@ int week8_api_server_serve(Week8ApiServer *server) {
         int q_size_snapshot = server->queue_size;
         pthread_mutex_unlock(&server->queue_mu);
         ctx->client_fd = client_fd;
-        ctx->timeout_ms = compute_dynamic_timeout_ms(q_size_snapshot, server->queue_capacity);
+        if (server->timeout_policy == WEEK8_TIMEOUT_FIXED) {
+            ctx->timeout_ms = server->fixed_timeout_ms;
+        } else {
+            ctx->timeout_ms = compute_dynamic_timeout_ms(q_size_snapshot, server->queue_capacity);
+        }
         ctx->deadline = add_ms(now_realtime(), ctx->timeout_ms);
         atomic_store(&ctx->cancel_token, 0);
         registry_add(server, ctx);

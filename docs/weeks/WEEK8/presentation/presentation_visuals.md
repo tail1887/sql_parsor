@@ -68,43 +68,50 @@ sequenceDiagram
 - A: 고정 스레드풀 + bounded queue
 - B: 요청당 스레드 생성
 
-문서에 넣을 그래프:
-1. Throughput 비교 (bar)
-2. p95 latency 비교 (line or bar)
-3. 503 비율 비교 (bar)
+02는 그래프 대신 표 + 설명으로 정리:
 
-그래프 해석 문장 템플릿:
-- "A는 상한 제어로 지연 분포가 안정적이고, B는 피크 구간에서 스레드 생성 비용으로 p95가 크게 증가했다."
-- "A는 일부 503을 허용하는 대신 시스템 생존성을 유지했고, B는 실패 형태가 불규칙해 원인 추적 비용이 컸다."
+| scenario | policy | throughput_mean | p95_mean | p99_mean | 503_mean | 504_mean | success_mean |
+| --- | --- | ---: | ---: | ---: | ---: | ---: | ---: |
+| normal | pool | 17462.41 | 3.29 | 4.95 | 0.0000 | 0.0000 | 0.3000 |
+| normal | per_request | 18994.63 | 3.10 | 5.48 | 0.0000 | 0.0000 | 0.1000 |
+| burst | pool | 17243.53 | 13.71 | 18.90 | 0.0847 | 0.0000 | 0.2153 |
+| burst | per_request | 19006.23 | 11.87 | 17.85 | 0.0000 | 0.0000 | 0.0848 |
+| saturation | pool | 16594.96 | 25.47 | 34.55 | 0.2428 | 0.0000 | 0.0563 |
+| saturation | per_request | 19704.23 | 15.44 | 23.17 | 0.0000 | 0.0000 | 0.0000 |
 
-실측 결과(3회 평균):
-- normal: per_request `11648.91 rps / 1.49 ms`, pool `11447.07 rps / 1.58 ms`
-- burst: per_request `12240.27 rps / 7.10 ms`, pool `11410.10 rps / 8.17 ms`
-- saturation: per_request `2130.17 rps / 12.33 ms`, pool `2067.96 rps / 11.98 ms`
+요약 설명:
+- throughput 기준으로는 세 시나리오 모두 per_request(B)가 pool(A)보다 높게 측정되었습니다.
+- p95/p99 지연도 burst/saturation 구간에서 per_request(B)가 더 낮게 나왔습니다.
+- 반면 pool(A)은 burst/saturation에서 503 비율이 증가해, 본 실험 조건에서는 backpressure가 더 자주 작동한 것으로 해석할 수 있습니다.
 
-그래프 파일:
-- `artifacts/week8/bench_02/throughput_02.png`
-- `artifacts/week8/bench_02/p95_02.png`
-- `artifacts/week8/bench_02/error503_02.png`
-- 요약표: `artifacts/week8/bench_02/summary_02.md`
-
-해석 시 주의:
-- 이번 02 벤치는 `GET /health` 워크로드라서 두 정책 모두 `503 ratio=0`으로 측정되었습니다.
-- queue 포화(503) 차이를 강조하려면 `/query` 또는 인위적 지연 훅을 포함한 별도 부하 실험이 추가로 필요합니다.
+근거 파일:
+- `artifacts/week8/bench_02_deep/benchmark_results_02_deep.csv`
+- `artifacts/week8/bench_02_deep/summary_02_deep.md`
 
 ## 5. 06 비교 그래프 블록 (A vs B)
 비교 대상:
 - A: 고정 timeout + queue full 즉시 거절
 - B: 동적 timeout (큐 길이 기반)
 
-문서에 넣을 그래프:
-1. 504 비율 비교
-2. 503 비율 비교
-3. p95/p99 latency 비교
+06은 그래프 대신 표 + 설명으로 정리:
 
-그래프 해석 문장 템플릿:
-- "A는 예측 가능성이 높고 대응이 단순했으며, B는 트래픽 변화 대응력은 높지만 튜닝 전제 조건이 필요했다."
-- "503/504 분리를 통해 클라이언트 재시도 전략을 구분할 수 있었고, 운영 로그 해석이 쉬워졌다."
+| scenario | policy | throughput_mean | p95_mean | p99_mean | 503_mean | 504_mean | success_mean |
+| --- | --- | ---: | ---: | ---: | ---: | ---: | ---: |
+| normal | dynamic | 18924.24 | 2.98 | 4.52 | 0.0000 | 0.0000 | 0.1250 |
+| normal | fixed | 14585.53 | 3.85 | 5.65 | 0.0000 | 0.0000 | 0.6250 |
+| burst | dynamic | 18764.17 | 12.05 | 18.00 | 0.0348 | 0.0000 | 0.0901 |
+| burst | fixed | 14411.82 | 18.46 | 24.25 | 0.2099 | 0.0945 | 0.3206 |
+| saturation | dynamic | 18802.88 | 13.27 | 21.65 | 0.0936 | 0.0000 | 0.0314 |
+| saturation | fixed | 13841.98 | 27.24 | 35.60 | 0.3200 | 0.2959 | 0.0089 |
+
+요약 설명:
+- 동적 timeout(B)은 고부하 구간(burst/saturation)에서 p95/p99가 더 낮고 throughput이 높게 나왔습니다.
+- 고정 timeout(A)은 동일 구간에서 503/504 비율이 더 높게 관찰되었습니다.
+- 특히 saturation에서 fixed는 `504_mean=0.2959`로 timeout 손실이 크게 나타났고, dynamic은 `504_mean=0.0000`으로 측정되었습니다.
+
+근거 파일:
+- `artifacts/week8/bench_06/benchmark_results_06.csv`
+- `artifacts/week8/bench_06/summary_06.md`
 
 ## 6. 실측 데이터 생성 절차 (발표 전 필수)
 아래 순서로 실제 데이터 CSV를 생성하고 그래프를 만듭니다.
