@@ -56,6 +56,8 @@ When building this project, use this order:
 ## Collaboration Rules
 
 - Each teammate uses a separate branch.
+- Do not push directly to `main`; all changes must go through a PR.
+- Merge to `main` is allowed only after CI passes on the PR.
 - Parser behavior changes must update `docs/03-api-reference.md`.
 - Data model/storage rule changes must update `docs/02-architecture.md`.
 - Process updates must update `docs/04-development-guide.md`.
